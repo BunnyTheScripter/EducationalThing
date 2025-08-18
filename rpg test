@@ -1,7 +1,3 @@
--- [+] DEBUG CONFIGURATION [+]
-local debug = true -- Set to true to see detailed logs in the console
-
--- [+] SERVICES [+]
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -9,20 +5,9 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- [+] LOCAL PLAYER & CAMERA [+]
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
--- [+] DEBUG LOGGER [+]
-local function log(prefix, message)
-	if debug then
-		print(prefix .. " " .. message)
-	end
-end
-
-log("[✅]", "Script services and logger initialized.")
-
--- [+] CORE CONFIG [+]
 local CONFIG = {
 	ToggleGUIKey = Enum.KeyCode.RightShift,
 	ToggleESPKey = Enum.KeyCode.X,
@@ -43,9 +28,12 @@ local CONFIG = {
 	DefaultWalkSpeed = 16, MaxWalkSpeed = 100,
 	FlySpeed = 50, MaxFlySpeed = 250,
 	TeleportMaxDistance = 200,
+
+	-- [+] RPG SPAM CONFIGS [+]
+	SpamDelay = 0.1, MaxSpamDelay = 1.0,
+	RpgSpamMaxRange = 1000, MaxRpgSpamMaxRange = 5000, -- Added for range slider
 }
 
--- [+] ESP CONFIG [+]
 local ESP_CONFIG = {
 	MaxDistance = 1000,
 	TextSize = 14,
@@ -67,7 +55,6 @@ local ESP_CONFIG = {
 	RainbowColor = Color3.new(1, 0, 0)
 }
 
--- [+] SCRIPT STATE [+]
 local State = {
 	IsAimbotActive = false,
 	IsFlyEnabled = false,
@@ -85,58 +72,174 @@ local State = {
 	HealthESP = true,
 	DistanceESP = true,
 	RainbowMode = false,
+
+	-- [+] RPG SPAM STATE [+]
+	RpgSpamEnabled = false,
+	RpgSpamTargetPlayers = false,
+	RpgSpamTargetShield = false,
+	RpgSpamTargetGunship = false,
+	RpgSpamRequireLineOfSight = true, -- Added for LOS toggle
+	RpgSpamWhitelist = {}, -- Table to store whitelisted player names
 }
 
--- [+] RPG MODIFIER LOGIC (FIXED) [+]
-local function modifyRpgSettings()
-	log("[🔍]", "Attempting to modify RPG settings via source manipulation...")
-	local success, err = pcall(function()
-		local configurations = ReplicatedStorage:WaitForChild("Configurations", 5)
-		if not configurations then error("Configurations folder not found.") end
-		
-		local acsGuns = configurations:WaitForChild("ACS_Guns", 5)
-		if not acsGuns then error("ACS_Guns folder not found.") end
+-- [+] RPG SPAM 2 LOGIC (IMPROVED VERSION) [+]
 
-		local rpgFolder = acsGuns:WaitForChild("RPG", 5)
-		if not rpgFolder then error("RPG folder not found in ACS_Guns.") end
-		
-		local settingsModule = rpgFolder:WaitForChild("Settings", 5)
-		if not settingsModule or not settingsModule:IsA("ModuleScript") then error("Settings module not found or is not a ModuleScript.") end
+-- A simple logger to help you see what's happening.
+-- Set Enabled to 'true' to see messages in the developer console (F9).
+local Debug = {
+	Enabled = true,
+	Log = function(...)
+		if Debug.Enabled then
+			print("[RPG SPAM DEBUG]", ...)
+		end
+	end
+}
 
-		log("[✅]", "Found RPG settings module at: " .. settingsModule:GetFullName())
+local RpgSpam2 = {}
 
-		local source = settingsModule.Source
-		if not source or #source < 10 then error("Could not read module source.") end
-		
-		log("[🔍]", "Original source read. Applying modifications...")
-		
-		-- Use string.gsub to replace values without breaking the code structure
-		source = source:gsub("(Ammo = )%d+", "%1 99999")
-		source = source:gsub("(FireRate = )%d+", "%1 1000")
-		source = source:gsub("(BDrop = )[%d%.]+", "%1 0")
-		source = source:gsub("(BSpeed = )%d+", "%1 5000")
-		source = source:gsub('(Mode = )"RPG"', '%1"Auto"')
-		source = source:gsub("(Auto = )false", "%1 true")
-		source = source:gsub("(VRecoil = ){[^}]+}", "%1{0, 0}")
-		source = source:gsub("(HRecoil = ){[^}]+}", "%1{0, 0}")
-		source = source:gsub("(RecoilPunch = )[%d%.]+", "%1 0")
-		source = source:gsub("(MinSpread = )[%d%.]+", "%1 0")
-		source = source:gsub("(MaxSpread = )[%d%.]+", "%1 0")
+-- Finds the closest valid shield part within range.
+function RpgSpam2.FindShield(origin)
+	local bestShield, minDist = nil, CONFIG.RpgSpamMaxRange
+	for _, a in pairs(Workspace.Tycoon.Tycoons:GetChildren()) do
+		if a.Owner.Value ~= LocalPlayer and a.PurchasedObjects:FindFirstChild("Base Shield") and a.PurchasedObjects["Base Shield"]:FindFirstChild("Shield") and a.PurchasedObjects["Base Shield"]["Shield"]:FindFirstChild("Shield4") then
+			local shieldPart = a.PurchasedObjects["Base Shield"].Shield.Shield4
+			local dist = (origin - shieldPart.Position).magnitude
+			if dist < minDist then
+				minDist = dist
+				bestShield = shieldPart
+			end
+		end
+	end
+	return bestShield
+end
 
-		-- Overwrite the module's source with our modified version
-		settingsModule.Source = source
-		
-		log("[✅]", "Overpowered RPG settings have been written to the module's source successfully!")
-		log("[ℹ️]", "Re-equip the RPG for changes to take effect.")
-	end)
+-- Finds the closest valid gunship part within range.
+function RpgSpam2.FindGunship(origin)
+	local bestGunship, minDist = nil, CONFIG.RpgSpamMaxRange
+	for _, v in pairs(Workspace["Game Systems"]["Gunship Workspace"]:GetChildren()) do
+		if v.Name == "AC-130 Gunship" and v:FindFirstChild("MainPart") then
+			local mainPart = v.MainPart
+			local dist = (origin - mainPart.Position).magnitude
+			if dist < minDist then
+				minDist = dist
+				bestGunship = mainPart
+			end
+		end
+	end
+	return bestGunship
+end
 
-	if not success then
-		log("[❌]", "Failed to modify RPG settings: " .. tostring(err))
+-- Finds the closest valid player within range.
+function RpgSpam2.FindPlayer(origin)
+	local bestPlayerPart, minDist = nil, CONFIG.RpgSpamMaxRange
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and not table.find(State.RpgSpamWhitelist, player.Name) then
+			local hrp = player.Character.HumanoidRootPart
+			local dist = (origin - hrp.Position).magnitude
+			if dist < minDist then
+				minDist = dist
+				bestPlayerPart = hrp
+			end
+		end
+	end
+	return bestPlayerPart
+end
+
+-- Checks if there is a clear line of sight to the target.
+function RpgSpam2.HasLineOfSight(originPart, targetPart)
+	if not State.RpgSpamRequireLineOfSight then
+		return true -- Skip the check if disabled.
+	end
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	-- Ignore our own character and the target's character so we don't hit ourselves/them.
+	params.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
+
+	local origin = originPart.Position
+	local direction = (targetPart.Position - origin)
+
+	local result = Workspace:Raycast(origin, direction, params)
+
+	if result and result.Instance:IsDescendantOf(targetPart.Parent) then
+		-- The ray hit another part of the target's character, which is fine.
+		return true
+	elseif result == nil then
+		-- The ray hit nothing, meaning clear line of sight to infinity.
+		return true
+	else
+		-- The ray hit something else (a wall, the ground, etc.)
+		Debug.Log("Line of sight blocked by:", result.Instance:GetFullName())
+		return false
 	end
 end
 
+-- This is the main loop. It's much cleaner now.
+function RpgSpam2.StartLoop()
+	task.spawn(function()
+		while task.wait(CONFIG.SpamDelay) do -- The delay is now the master clock for the loop.
+			if not State.RpgSpamEnabled then continue end
 
--- [-] SCRIPT CORE (GUI, ESP, AIMBOT, ETC) - NO CHANGES BELOW THIS LINE EXCEPT FOR GUI CREATION [-]
+			local char = LocalPlayer.Character
+			local rpgTool = char and char:FindFirstChild("RPG")
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+			if not rpgTool or not hrp then
+				--Debug.Log("Waiting for player to equip RPG or for character to load.")
+				continue
+			end
+
+			-- Now, let's find the BEST target instead of spamming all of them.
+			local bestTarget = nil
+			local currentMinDist = CONFIG.RpgSpamMaxRange
+
+			-- 1. Check for Players
+			if State.RpgSpamTargetPlayers then
+				local targetPlayerPart = RpgSpam2.FindPlayer(hrp.Position)
+				if targetPlayerPart then
+					bestTarget = targetPlayerPart
+					currentMinDist = (hrp.Position - targetPlayerPart.Position).magnitude
+				end
+			end
+
+			-- 2. Check for Shields (only if it's closer than the current best target)
+			if State.RpgSpamTargetShield then
+				local targetShieldPart = RpgSpam2.FindShield(hrp.Position)
+				if targetShieldPart and (hrp.Position - targetShieldPart.Position).magnitude < currentMinDist then
+					bestTarget = targetShieldPart
+					currentMinDist = (hrp.Position - targetShieldPart.Position).magnitude
+				end
+			end
+
+			-- 3. Check for Gunships (only if it's closer)
+			if State.RpgSpamTargetGunship then
+				local targetGunshipPart = RpgSpam2.FindGunship(hrp.Position)
+				if targetGunshipPart and (hrp.Position - targetGunshipPart.Position).magnitude < currentMinDist then
+					bestTarget = targetGunshipPart
+				end
+			end
+
+			-- If we found a valid target, fire once.
+			if bestTarget then
+				Debug.Log("Found best target:", bestTarget:GetFullName(), "at distance:", math.floor(currentMinDist))
+
+				-- IMPORTANT: Perform Line of Sight Check
+				if RpgSpam2.HasLineOfSight(hrp, bestTarget) then
+					Debug.Log("Target has clear line of sight. Firing.")
+					-- Fire the event
+					pcall(function()
+						local rocketHit = ReplicatedStorage.RocketSystem.Events.RocketHit
+						rocketHit:FireServer(bestTarget.Position, Vector3.yAxis, rpgTool, rpgTool, bestTarget)
+					end)
+				else
+					Debug.Log("Target is obstructed, not firing.")
+				end
+			end
+		end
+	end)
+end
+-- [-] RPG SPAM 2 LOGIC (IMPROVED VERSION) [-]
+
 
 local uiElements = {}
 local espDrawings = {}
@@ -149,21 +252,16 @@ local originalPartProperties = {}
 local boxStyleIndex, tracerOriginIndex = 1, 1
 
 local function killAllPlayers()
-	log("[🔍]", "Attempting to use Kill All (ACS)...")
-	local acsEngine = ReplicatedStorage:FindFirstChild("ACS_Engine")
-	if acsEngine then
-		local acsEvent = acsEngine:FindFirstChild("Events", true)
+	if game.ReplicatedStorage:FindFirstChild("ACS_Engine") then
+		local acsEvent = game.ReplicatedStorage.ACS_Engine:FindFirstChild("Events", true)
 		if acsEvent and acsEvent:FindFirstChild("Damage") then
-			local count = 0
 			for _, player in pairs(Players:GetPlayers()) do
 				if player ~= LocalPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
 					acsEvent.Damage:FireServer(player.Character.Humanoid, 100, 100, "Head")
-					count = count + 1
 				end
 			end
-			log("[✅]", "Fired Kill All event for " .. count .. " players.")
-		else log("[❌]", "Could not find ACS Damage Event!") end
-	else log("[❌]", "Game doesn't have ACS Engine!") end
+		else print("Could not find ACS Damage Event!") end
+	else print("Game doesn't have ACS!") end
 end
 
 local function updateWorkspaceCollision(enabled)
@@ -181,7 +279,6 @@ local function updateWorkspaceCollision(enabled)
 				end
 			end
 		end
-		log("[✅]", "WallBang (Noclip) enabled.")
 	else
 		for part, properties in pairs(originalPartProperties) do
 			if part and part.Parent then
@@ -189,7 +286,6 @@ local function updateWorkspaceCollision(enabled)
 			end
 		end
 		originalPartProperties = {}
-		log("[✅]", "WallBang (Noclip) disabled.")
 	end
 end
 
@@ -326,11 +422,21 @@ end
 
 local function updateAllEsp()
 	if not State.ESP_Enabled then
-		if espContainer.Visible then espContainer.Visible = false end
+		espContainer.Visible = false
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.Character then
+				local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid.HealthDisplayDistance = 100
+					humanoid.NameDisplayDistance = 100
+				end
+			end
+			hideDrawingsForPlayer(player)
+		end
 		return
 	end
 
-	if not espContainer.Visible then espContainer.Visible = true end
+	espContainer.Visible = true
 	if State.RainbowMode then ESP_CONFIG.RainbowColor = Color3.fromHSV((tick() * ESP_CONFIG.RainbowSpeed) % 1, 1, 1) end
 
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -475,7 +581,7 @@ local function updateAimbot() if not State.IsAimbotActive then return end local 
 local function updateFly() local char = LocalPlayer.Character if not State.IsFlyEnabled or not char or not char:FindFirstChild("HumanoidRootPart") then if flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end return end local hrp = char.HumanoidRootPart if not flyVelocity then flyVelocity = Instance.new("LinearVelocity", hrp) flyVelocity.MaxForce = math.huge flyVelocity.Attachment0 = hrp:FindFirstChildWhichIsA("Attachment") or Instance.new("Attachment", hrp) flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World end local moveVector = Vector3.new() if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector += Camera.CFrame.LookVector end if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector -= Camera.CFrame.LookVector end if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector += Camera.CFrame.RightVector end if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector -= Camera.CFrame.RightVector end if UserInputService:IsKeyDown(CONFIG.FlyUpKey) then moveVector += Vector3.new(0, 1, 0) end if UserInputService:IsKeyDown(CONFIG.FlyDownKey) then moveVector -= Vector3.new(0, 1, 0) end flyVelocity.VectorVelocity = moveVector.Magnitude > 0 and moveVector.Unit * CONFIG.FlySpeed or Vector3.zero end
 local function teleportToCursor() if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end local mouseLocation = UserInputService:GetMouseLocation() local unitRay = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y) local rayParams = RaycastParams.new() rayParams.FilterDescendantsInstances = {LocalPlayer.Character} rayParams.FilterType = Enum.RaycastFilterType.Exclude local result = Workspace:Raycast(unitRay.Origin, unitRay.Direction * CONFIG.TeleportMaxDistance, rayParams) local targetPos = result and result.Position or (unitRay.Origin + unitRay.Direction * CONFIG.TeleportMaxDistance) LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos) end
 
-local gui, mainFrame
+local gui, mainFrame, playerListFrame
 local function toggleState(stateKey, button)
 	State[stateKey] = not State[stateKey]
 	button.Text = button.Name .. ": " .. (State[stateKey] and "ON" or "OFF")
@@ -483,6 +589,80 @@ local function toggleState(stateKey, button)
 	if stateKey == "IsFlyEnabled" and not State[stateKey] and flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end
 	if stateKey == "IsWallBangEnabled" then updateWorkspaceCollision(State[stateKey]) end
 end
+
+local function updatePlayerList()
+	if not playerListFrame then return end
+	
+	for _, child in ipairs(playerListFrame:GetChildren()) do
+		if not child:IsA("UIListLayout") then
+			child:Destroy()
+		end
+	end
+
+	for i, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			local playerEntry = Instance.new("Frame", playerListFrame)
+			playerEntry.Name = player.Name .. "_Entry"
+			playerEntry.LayoutOrder = i
+			playerEntry.Size = UDim2.new(1, 0, 0, 25)
+			playerEntry.BackgroundTransparency = 1
+			
+			local entryLayout = Instance.new("UIListLayout", playerEntry)
+			entryLayout.FillDirection = Enum.FillDirection.Horizontal
+			entryLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			entryLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+			entryLayout.Padding = UDim.new(0, 5)
+
+			local playerButton = Instance.new("TextButton", playerEntry)
+			playerButton.Name = player.Name
+			playerButton.LayoutOrder = 1
+			playerButton.Size = UDim2.new(0.8, -5, 1, 0)
+			playerButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+			playerButton.Font = Enum.Font.SourceSans
+			playerButton.Text = player.Name
+			playerButton.TextSize = 16
+			playerButton.TextColor3 = Color3.new(1, 1, 1)
+			Instance.new("UICorner", playerButton).CornerRadius = UDim.new(0, 4)
+			playerButton.MouseButton1Click:Connect(function()
+				if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+					LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame
+				end
+			end)
+
+			local whitelistButton = Instance.new("TextButton", playerEntry)
+			whitelistButton.Name = "WhitelistToggle"
+			whitelistButton.LayoutOrder = 2
+			whitelistButton.Size = UDim2.new(0.2, 0, 1, 0)
+			whitelistButton.Font = Enum.Font.SourceSansBold
+			whitelistButton.Text = "WL"
+			whitelistButton.TextSize = 16
+			Instance.new("UICorner", whitelistButton).CornerRadius = UDim.new(0, 4)
+
+			local function updateWlButtonColor()
+				if table.find(State.RpgSpamWhitelist, player.Name) then
+					whitelistButton.BackgroundColor3 = Color3.fromRGB(0, 255, 127)
+					whitelistButton.TextColor3 = Color3.fromRGB(0, 0, 0)
+				else
+					whitelistButton.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+					whitelistButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+				end
+			end
+			
+			whitelistButton.MouseButton1Click:Connect(function()
+				local index = table.find(State.RpgSpamWhitelist, player.Name)
+				if index then
+					table.remove(State.RpgSpamWhitelist, index)
+				else
+					table.insert(State.RpgSpamWhitelist, player.Name)
+				end
+				updateWlButtonColor()
+			end)
+
+			updateWlButtonColor()
+		end
+	end
+end
+
 
 local function createGUI()
 	gui = Instance.new("ScreenGui")
@@ -520,7 +700,7 @@ local function createGUI()
 	local title = Instance.new("TextLabel", mainFrame)
 	title.Size = UDim2.new(1, 0, 0, 40)
 	title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-	title.Text = "mooncat v5.0 (FIXED)"
+	title.Text = "mooncat v4.8"
 	title.TextSize = 24
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	title.Font = Enum.Font.SourceSansBold
@@ -568,31 +748,39 @@ local function createGUI()
 	createCategory("Combat")
 	createToggle("Hitbox Expander", "HitboxESP")
 	createSlider("Hitbox Size", "HitboxSize", "MaxHitboxSize", "%.1f")
-	
-	local modifyRpgButton = Instance.new("TextButton", scrollingFrame)
-	modifyRpgButton.Name = "[MOD] Make RPG OP"
-	modifyRpgButton.LayoutOrder = #scrollingFrame:GetChildren()
-	modifyRpgButton.Size = UDim2.new(1, 0, 0, 30)
-	modifyRpgButton.BackgroundColor3 = Color3.fromRGB(100, 60, 200) -- Purple color
-	modifyRpgButton.Font = Enum.Font.SourceSansBold
-	modifyRpgButton.Text = "[MOD] Make RPG OP"
-	modifyRpgButton.TextSize = 18
-	modifyRpgButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	Instance.new("UICorner", modifyRpgButton).CornerRadius = UDim.new(0, 4)
-	modifyRpgButton.MouseButton1Click:Connect(modifyRpgSettings)
-	
-	local killAllButton = Instance.new("TextButton", scrollingFrame) 
-	killAllButton.Name = "Kill All (ACS)" 
-	killAllButton.LayoutOrder = #scrollingFrame:GetChildren() 
-	killAllButton.Size = UDim2.new(1, 0, 0, 30) 
-	killAllButton.BackgroundColor3 = Color3.fromRGB(150, 40, 40) 
-	killAllButton.Font = Enum.Font.SourceSansBold 
-	killAllButton.Text = "Kill All (ACS)" 
-	killAllButton.TextSize = 20 
-	killAllButton.TextColor3 = Color3.fromRGB(255, 255, 255) 
-	Instance.new("UICorner", killAllButton).CornerRadius = UDim.new(0, 4) 
-	killAllButton.MouseButton1Click:Connect(killAllPlayers)
-	
+	local killAllButton = Instance.new("TextButton", scrollingFrame) killAllButton.Name = "Kill All (ACS)" killAllButton.LayoutOrder = #scrollingFrame:GetChildren() killAllButton.Size = UDim2.new(1, 0, 0, 30) killAllButton.BackgroundColor3 = Color3.fromRGB(150, 40, 40) killAllButton.Font = Enum.Font.SourceSansBold killAllButton.Text = "Kill All (ACS)" killAllButton.TextSize = 20 killAllButton.TextColor3 = Color3.fromRGB(255, 255, 255) Instance.new("UICorner", killAllButton).CornerRadius = UDim.new(0, 4) killAllButton.MouseButton1Click:Connect(killAllPlayers)
+	local infiniteAmmoButton = Instance.new("TextButton", scrollingFrame)
+	infiniteAmmoButton.Name = "Infinite RPG Ammo"
+	infiniteAmmoButton.LayoutOrder = #scrollingFrame:GetChildren()
+	infiniteAmmoButton.Size = UDim2.new(1, 0, 0, 30)
+	infiniteAmmoButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	infiniteAmmoButton.Font = Enum.Font.SourceSans
+	infiniteAmmoButton.Text = "Infinite RPG Ammo"
+	infiniteAmmoButton.TextSize = 20
+	infiniteAmmoButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+	Instance.new("UICorner", infiniteAmmoButton).CornerRadius = UDim.new(0, 4)
+	infiniteAmmoButton.MouseButton1Click:Connect(function()
+		local RS = game:GetService("ReplicatedStorage")
+		local Configurations = RS:FindFirstChild("Configurations")
+		if Configurations then
+			local ACS_Guns = Configurations:FindFirstChild("ACS_Guns")
+			if ACS_Guns then
+				local RPG = ACS_Guns:FindFirstChild("RPG")
+				if RPG then
+					local Ammo = RPG:FindFirstChild("Ammo")
+					if Ammo then
+						local parent = Ammo.Parent
+						local name = Ammo.Name
+						Ammo:Destroy()
+						local newAmmoValue = Instance.new("NumberValue")
+						newAmmoValue.Name = name
+						newAmmoValue.Value = 9999
+						newAmmoValue.Parent = parent
+					end
+				end
+			end
+		end
+	end)
 	local targetButton = Instance.new("TextButton", scrollingFrame) targetButton.Name = "Aimbot Target" targetButton.LayoutOrder = #scrollingFrame:GetChildren() targetButton.Size = UDim2.new(1, 0, 0, 30) targetButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) targetButton.Font = Enum.Font.SourceSans targetButton.Text = "Target: " .. CONFIG.TargetPartName targetButton.TextSize = 20 targetButton.TextColor3 = Color3.fromRGB(220, 220, 220) Instance.new("UICorner", targetButton).CornerRadius = UDim.new(0, 4) targetButton.MouseButton1Click:Connect(function() aimbotTargetIndex = (aimbotTargetIndex % #CONFIG.AimbotTargetParts) + 1 CONFIG.TargetPartName = CONFIG.AimbotTargetParts[aimbotTargetIndex] targetButton.Text = "Target: " .. CONFIG.TargetPartName end)
 	createSlider("Aimbot FOV", "AimbotFOV", "MaxAimbotFOV", "%.0f")
 	createSlider("Aimbot Prediction", "AimbotPrediction", "MaxAimbotPrediction", "%.2f")
@@ -604,8 +792,21 @@ local function createGUI()
 	createSlider("WalkSpeed", "DefaultWalkSpeed", "MaxWalkSpeed", "%.0f", function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed end end)
 	createSlider("Fly Speed", "FlySpeed", "MaxFlySpeed", "%.0f")
 
+	-- [+] RPG SPAM 2 UI [+]
+	createCategory("RPG Spam 2")
+	createToggle("Spam RPG (Very Risk)", "RpgSpamEnabled")
+	createToggle("Target Players", "RpgSpamTargetPlayers")
+	createToggle("Target Base Shield", "RpgSpamTargetShield")
+	createToggle("Target AC-130 Gunship", "RpgSpamTargetGunship")
+	createToggle("Require Line of Sight", "RpgSpamRequireLineOfSight") -- New UI Toggle
+	createSlider("Spam Delay", "SpamDelay", "MaxSpamDelay", "%.2fs")
+	createSlider("Spam Max Range", "RpgSpamMaxRange", "MaxRpgSpamMaxRange", "%.0fm") -- New UI Slider
+
+	createCategory("Players")
+	playerListFrame = Instance.new("Frame", scrollingFrame) playerListFrame.Name = "PlayerListFrame" playerListFrame.LayoutOrder = #scrollingFrame:GetChildren() playerListFrame.Size = UDim2.new(1, 0, 0, 0) playerListFrame.AutomaticSize = Enum.AutomaticSize.Y playerListFrame.BackgroundTransparency = 1 local playerListLayout = Instance.new("UIListLayout", playerListFrame) playerListLayout.Padding = UDim.new(0, 5)
+
 	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-	log("[✅]", "GUI created and parented successfully.")
+	updatePlayerList()
 end
 
 local isGuiVisible = true
@@ -617,8 +818,15 @@ local function onCharacterAdded(character)
 	local humanoid = character:WaitForChild("Humanoid")
 	humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed
 end
-local function onPlayerAdded(player) if player ~= LocalPlayer then createEspForPlayer(player) end end
-local function onPlayerRemoving(player) removeEspForPlayer(player) if originalHitboxSizes[player] then originalHitboxSizes[player] = nil end end
+local function onPlayerAdded(player) if player ~= LocalPlayer then createEspForPlayer(player) end if gui then updatePlayerList() end end
+local function onPlayerRemoving(player)
+	removeEspForPlayer(player)
+	if originalHitboxSizes[player] then
+		originalHitboxSizes[player] = nil
+	end
+	if gui then updatePlayerList() end
+end
+
 local function onInputBegan(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == CONFIG.ToggleGUIKey then toggleGUI() end
@@ -628,7 +836,6 @@ local function onInputBegan(input, gameProcessed)
 end
 local function onInputEnded(input) if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = false end end
 
--- [+] INITIALIZATION [+]
 createGUI()
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(onPlayerRemoving)
@@ -639,6 +846,9 @@ LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
 for _, player in ipairs(Players:GetPlayers()) do onPlayerAdded(player) end
 
+-- Start RPG Spam loop
+RpgSpam2.StartLoop()
+
 RunService.RenderStepped:Connect(function()
 	updateAllEsp()
 	updateAimbot()
@@ -647,8 +857,6 @@ RunService.RenderStepped:Connect(function()
 	updateHitboxes()
 end)
 
-log("[✅]", "All events connected and main loop started.")
-
 print([[
  __  __                      ____      _
 |  \/  | ___   ___  _ __    / ___|__ _| |_
@@ -656,6 +864,6 @@ print([[
 | |  | | (_) | (_) | | | | | |__| (_| | |_
 |_|  |_|\___/ \___/|_| |_|  \____\__,_|\__|
 
-mooncat v5.0 (FIXED) (Client-Side) Loaded. Press RightShift to toggle the menu.
-RPG Modifier has been patched and is now more reliable.
+mooncat v4.8 (Client-Side) Loaded. Press RightShift to toggle the menu.
+RPG Spam 2 features have been upgraded with LOS and Range checks.
 ]])
