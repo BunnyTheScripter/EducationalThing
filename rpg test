@@ -1,3 +1,4 @@
+-- Whitelist Script with Debug Information
 local WhitelistIDs = {
     8950793210,
 }
@@ -5,20 +6,57 @@ local WhitelistIDs = {
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+-- Wait for LocalPlayer if it doesn't exist yet
 if not LocalPlayer then
+    print("DEBUG: Waiting for LocalPlayer...")
     Players.LocalPlayerAdded:Wait()
     LocalPlayer = Players.LocalPlayer
 end
 
+-- Debug: Print player information
+print("DEBUG: LocalPlayer found:", LocalPlayer.Name)
+print("DEBUG: LocalPlayer UserId:", LocalPlayer.UserId)
+print("DEBUG: Whitelist contains:", table.concat(WhitelistIDs, ", "))
+
+-- Function to check if player is whitelisted
 local function isPlayerWhitelisted(player)
-    for _, whitelistedId in ipairs(WhitelistIDs) do
-        if whitelistedId == player.UserId then
-            return true -- Found a match!
+    local userId = player.UserId
+    print("DEBUG: Checking UserId:", userId)
+    
+    for i, whitelistedId in ipairs(WhitelistIDs) do
+        print("DEBUG: Comparing", userId, "with whitelist entry", i, ":", whitelistedId)
+        if whitelistedId == userId then
+            print("DEBUG: Match found!")
+            return true
         end
     end
-    return false -- No match found after checking the whole list
+    print("DEBUG: No match found")
+    return false
 end
 
+-- Main whitelist check
+if #WhitelistIDs > 0 then
+    print("DEBUG: Whitelist has", #WhitelistIDs, "entries")
+    
+    if isPlayerWhitelisted(LocalPlayer) then
+        print("==============================================")
+        print("MOONCAT: ACESSO PERMITIDO - BEM-VINDO!")
+        print("==============================================")
+    else
+        print("==============================================")
+        print("MOONCAT: ACESSO NEGADO - SEU ID NÃO ESTÁ NA WHITELIST.")
+        print("==============================================")
+        
+        -- Add a small delay before kicking to ensure the message is visible
+        wait(2)
+        LocalPlayer:Kick("You are not on the whitelist for this experience.")
+    end
+else
+    print("DEBUG: Whitelist is empty - allowing all players")
+    print("==============================================")
+    print("MOONCAT: ACESSO PERMITIDO - BEM-VINDO!")
+    print("==============================================")
+end
 if #WhitelistIDs > 0 and not isPlayerWhitelisted(LocalPlayer) then
     print("==============================================")
     print("MOONCAT: ACESSO NEGADO - SEU ID NÃO ESTÁ NA WHITELIST.")
