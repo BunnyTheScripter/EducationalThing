@@ -1,6 +1,6 @@
 -- Whitelist Script with Debug Information
 local WhitelistIDs = {
-    8950793210,
+    1,
 }
 
 local Players = game:GetService("Players")
