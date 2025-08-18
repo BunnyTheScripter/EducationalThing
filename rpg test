@@ -119,7 +119,7 @@ function RpgSpam2.StartLoop()
 			if State.RpgSpamEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("RPG") then
 				pcall(function()
 					local rocketSystem = ReplicatedStorage:WaitForChild("RocketSystem")
-					local rocketHit = rocketSystem and rocketSystem:WaitForChild("RocketHit")
+					local rocketHit = rocketSystem and rocketSystem.Events:WaitForChild("RocketHit")
 					if not rocketHit then return end
 					
 					local rpgTool = LocalPlayer.Character.RPG
@@ -174,7 +174,7 @@ local boxStyleIndex, tracerOriginIndex = 1, 1
 
 local function killAllPlayers()
 	if game.ReplicatedStorage:FindFirstChild("ACS_Engine") then
-		local acsEvent = game.ReplicatedStorage.ACS_Engine:FindFirstChild("Eventos", true)
+		local acsEvent = game.ReplicatedStorage.ACS_Engine:FindFirstChild("Events", true)
 		if acsEvent and acsEvent:FindFirstChild("Damage") then
 			for _, player in pairs(Players:GetPlayers()) do
 				if player ~= LocalPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
