@@ -332,7 +332,7 @@ local function createGUI()
 	createSlider("WalkSpeed", "DefaultWalkSpeed", "MaxWalkSpeed", "%.0f", function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed end end) createSlider("Fly Speed", "FlySpeed", "MaxFlySpeed", "%.0f")
 	createCategory("Players") playerListFrame = Instance.new("Frame", scrollingFrame) playerListFrame.Name = "PlayerListFrame" playerListFrame.LayoutOrder = #scrollingFrame:GetChildren() playerListFrame.Size = UDim2.new(1, 0, 0, 0) playerListFrame.AutomaticSize = Enum.AutomaticSize.Y playerListFrame.BackgroundTransparency = 1 local playerListLayout = Instance.new("UIListLayout", playerListFrame) playerListLayout.Padding = UDim.new(0, 5)
 	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-	updatePlayerlist()
+	updatePlayerList()
 end
 
 local isGuiVisible = true function toggleGUI() isGuiVisible = not isGuiVisible local goalPosition = isGuiVisible and UDim2.new(0, 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) or UDim2.new(0, -mainFrame.AbsoluteSize.X - 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) mainFrame:TweenPosition(goalPosition, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true) end
