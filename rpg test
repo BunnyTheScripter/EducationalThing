@@ -1,3 +1,10 @@
+--[[
+	Original script by the user, modifications implemented as requested.
+	- Added a screen-centered FOV circle, toggleable in the GUI.
+	- Changed aimbot logic to target the closest player within the FOV (front player priority).
+	- Changed the aimbot key to MouseButton4.
+]]
+
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
@@ -10,7 +17,7 @@ local Camera = Workspace.CurrentCamera
 local CONFIG = {
 	ToggleGUIKey = Enum.KeyCode.RightShift,
 	ToggleESPKey = Enum.KeyCode.X,
-	AimbotKey = Enum.KeyCode.E,
+	AimbotKey = Enum.UserInputType.MouseButton4, -- Changed to MouseButton4
 	TeleportKey = Enum.KeyCode.Q,
 	FlyUpKey = Enum.KeyCode.Space,
 	FlyDownKey = Enum.KeyCode.LeftControl,
@@ -52,6 +59,7 @@ local ESP_CONFIG = {
 
 local State = {
 	IsAimbotActive = false,
+	ShowAimbotFOV = true, -- Added state for FOV circle visibility
 	IsFlyEnabled = false,
 	IsWallBangEnabled = false,
 	HitboxESP = false,
@@ -264,25 +272,94 @@ local function updateAllEsp()
 	end
 end
 
-local function updateAimbotFOV() if not aimbotFovCircle then return end aimbotFovCircle.Visible = State.IsAimbotActive if State.IsAimbotActive then local mousePos = UserInputService:GetMouseLocation() aimbotFovCircle.Position = UDim2.fromOffset(mousePos.X, mousePos.Y) local fovSize = CONFIG.AimbotFOV * 2 aimbotFovCircle.Size = UDim2.fromOffset(fovSize, fovSize) end end
-local function getClosestPlayerToMouse()
-	local closestTarget, smallestDistance = nil, CONFIG.AimbotFOV
-	local mousePosition = UserInputService:GetMouseLocation()
+-- Reworked FOV circle logic
+local function updateAimbotFOV()
+	if not aimbotFovCircle then return end
+	aimbotFovCircle.Visible = State.ShowAimbotFOV
+	if State.ShowAimbotFOV then
+		local fovSize = CONFIG.AimbotFOV * 2
+		aimbotFovCircle.Position = UDim2.fromOffset(Camera.ViewportSize.X / 2, Camera.ViewportSiz.Y / 2)
+		aimbotFovCircle.Size = UDim2.fromOffset(fovSize, fovSize)
+	end
+end
+
+-- Reworked Aimbot targeting logic
+local function getAimbotTarget()
+	local bestTarget, min3DDistance = nil, math.huge
+	local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and not table.find(State.Whitelist, player.Name) and player.Character and player.Character:FindFirstChild(CONFIG.TargetPartName) and player.Character:FindFirstChildOfClass("Humanoid") and player.Character.Humanoid.Health > 0 then
-			local targetPart = player.Character[CONFIG.TargetPartName] local screenPosition, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
-			if onScreen then local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - mousePosition).Magnitude if distance < smallestDistance then smallestDistance, closestTarget = distance, targetPart end end
+			local targetPart = player.Character[CONFIG.TargetPartName]
+			local screenPosition, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+
+			if onScreen and (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude < CONFIG.AimbotFOV then
+				-- Player is in FOV, check if they are the closest in 3D space (the one in front)
+				local distance3D = (targetPart.Position - Camera.CFrame.Position).Magnitude
+				if distance3D < min3DDistance then
+					min3DDistance = distance3D
+					bestTarget = targetPart
+				end
+			end
 		end
 	end
-	return closestTarget
+	return bestTarget
 end
-local function updateAimbot() if not State.IsAimbotActive then return end local target = getClosestPlayerToMouse() if target then local predictedPosition = target.Position + (target.AssemblyLinearVelocity * CONFIG.AimbotPrediction) local newCFrame = CFrame.new(Camera.CFrame.Position, predictedPosition) if CONFIG.AimbotHardLock then Camera.CFrame = newCFrame else Camera.CFrame = Camera.CFrame:Lerp(newCFrame, CONFIG.AimbotSmoothing) end end end
-local function updateFly() local char = LocalPlayer.Character if not State.IsFlyEnabled or not char or not char:FindFirstChild("HumanoidRootPart") then if flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end return end local hrp = char.HumanoidRootPart if not flyVelocity then flyVelocity = Instance.new("LinearVelocity", hrp) flyVelocity.MaxForce = math.huge flyVelocity.Attachment0 = hrp:FindFirstChildWhichIsA("Attachment") or Instance.new("Attachment", hrp) flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World end local moveVector = Vector3.new() if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector += Camera.CFrame.LookVector end if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector -= Camera.CFrame.LookVector end if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector += Camera.CFrame.RightVector end if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector -= Camera.CFrame.RightVector end if UserInputService:IsKeyDown(CONFIG.FlyUpKey) then moveVector += Vector3.new(0, 1, 0) end if UserInputService:IsKeyDown(CONFIG.FlyDownKey) then moveVector -= Vector3.new(0, 1, 0) end flyVelocity.VectorVelocity = moveVector.Magnitude > 0 and moveVector.Unit * CONFIG.FlySpeed or Vector3.zero end
-local function teleportToCursor() if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end local mouseLocation = UserInputService:GetMouseLocation() local unitRay = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y) local rayParams = RaycastParams.new() rayParams.FilterDescendantsInstances = {LocalPlayer.Character} rayParams.FilterType = Enum.RaycastFilterType.Exclude local result = Workspace:Raycast(unitRay.Origin, unitRay.Direction * CONFIG.TeleportMaxDistance, rayParams) local targetPos = result and result.Position or (unitRay.Origin + unitRay.Direction * CONFIG.TeleportMaxDistance) LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos) end
+
+local function updateAimbot()
+	if not State.IsAimbotActive then return end
+	local target = getAimbotTarget() -- Use new targeting function
+	if target then
+		local predictedPosition = target.Position + (target.AssemblyLinearVelocity * CONFIG.AimbotPrediction)
+		local newCFrame = CFrame.new(Camera.CFrame.Position, predictedPosition)
+		if CONFIG.AimbotHardLock then
+			Camera.CFrame = newCFrame
+		else
+			Camera.CFrame = Camera.CFrame:Lerp(newCFrame, CONFIG.AimbotSmoothing)
+		end
+	end
+end
+
+local function updateFly()
+	local char = LocalPlayer.Character
+	if not State.IsFlyEnabled or not char or not char:FindFirstChild("HumanoidRootPart") then
+		if flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end
+		return
+	end
+	local hrp = char.HumanoidRootPart
+	if not flyVelocity then
+		flyVelocity = Instance.new("LinearVelocity", hrp)
+		flyVelocity.MaxForce = math.huge
+		flyVelocity.Attachment0 = hrp:FindFirstChildWhichIsA("Attachment") or Instance.new("Attachment", hrp)
+		flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World
+	end
+	local moveVector = Vector3.new()
+	if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector += Camera.CFrame.LookVector end
+	if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector -= Camera.CFrame.LookVector end
+	if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector += Camera.CFrame.RightVector end
+	if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector -= Camera.CFrame.RightVector end
+	if UserInputService:IsKeyDown(CONFIG.FlyUpKey) then moveVector += Vector3.new(0, 1, 0) end
+	if UserInputService:IsKeyDown(CONFIG.FlyDownKey) then moveVector -= Vector3.new(0, 1, 0) end
+	flyVelocity.VectorVelocity = moveVector.Magnitude > 0 and moveVector.Unit * CONFIG.FlySpeed or Vector3.zero
+end
+
+local function teleportToCursor()
+	if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+	local mouseLocation = UserInputService:GetMouseLocation()
+	local unitRay = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y)
+	local rayParams = RaycastParams.new()
+	rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	local result = Workspace:Raycast(unitRay.Origin, unitRay.Direction * CONFIG.TeleportMaxDistance, rayParams)
+	local targetPos = result and result.Position or (unitRay.Origin + unitRay.Direction * CONFIG.TeleportMaxDistance)
+	LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
+end
 
 local gui, mainFrame, playerListFrame
 local function toggleState(stateKey, button)
-	State[stateKey] = not State[stateKey] button.Text = button.Name .. ": " .. (State[stateKey] and "ON" or "OFF") button.TextColor3 = State[stateKey] and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(255, 70, 70)
+	State[stateKey] = not State[stateKey]
+	button.Text = button.Name .. ": " .. (State[stateKey] and "ON" or "OFF")
+	button.TextColor3 = State[stateKey] and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(255, 70, 70)
 	if stateKey == "IsFlyEnabled" and not State[stateKey] and flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end
 	if stateKey == "IsWallBangEnabled" then updateWorkspaceCollision(State[stateKey]) end
 end
@@ -322,7 +399,10 @@ local function createGUI()
 	createToggle("Tracer ESP", "TracerESP")
 	local tracerOriginButton = Instance.new("TextButton", scrollingFrame) tracerOriginButton.Name = "Tracer Origin" tracerOriginButton.LayoutOrder = #scrollingFrame:GetChildren() tracerOriginButton.Size = UDim2.new(1, 0, 0, 30) tracerOriginButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) tracerOriginButton.Font = Enum.Font.SourceSans tracerOriginButton.Text = "Origin: " .. ESP_CONFIG.TracerOrigins[tracerOriginIndex] tracerOriginButton.TextSize = 20 tracerOriginButton.TextColor3 = Color3.fromRGB(220, 220, 220) Instance.new("UICorner", tracerOriginButton).CornerRadius = UDim.new(0, 4) tracerOriginButton.MouseButton1Click:Connect(function() tracerOriginIndex = (tracerOriginIndex % #ESP_CONFIG.TracerOrigins) + 1 tracerOriginButton.Text = "Origin: " .. ESP_CONFIG.TracerOrigins[tracerOriginIndex] end)
 	createToggle("Name ESP", "NameESP") createToggle("Health ESP", "HealthESP") createToggle("Distance ESP", "DistanceESP") createToggle("Skeleton ESP", "SkeletonESP") createToggle("Chams ESP", "ChamsESP") createToggle("Rainbow Mode", "RainbowMode") createSlider("Max Distance", "MaxDistance", 5000, "%.0fm")
-	createCategory("Combat") createToggle("Hitbox Expander", "HitboxESP") createSlider("Hitbox Size", "HitboxSize", "MaxHitboxSize", "%.1f")
+	createCategory("Combat")
+	createToggle("Show Aimbot FOV", "ShowAimbotFOV") -- Added FOV toggle button
+	createToggle("Hitbox Expander", "HitboxESP")
+	createSlider("Hitbox Size", "HitboxSize", "MaxHitboxSize", "%.1f")
 	local godModeButton = Instance.new("TextButton", scrollingFrame) godModeButton.Name = "God Mode" godModeButton.LayoutOrder = #scrollingFrame:GetChildren() godModeButton.Size = UDim2.new(1, 0, 0, 30) godModeButton.BackgroundColor3 = Color3.fromRGB(170, 0, 255) godModeButton.Font = Enum.Font.SourceSansBold godModeButton.Text = "God Mode" godModeButton.TextSize = 20 godModeButton.TextColor3 = Color3.fromRGB(255, 255, 255) Instance.new("UICorner", godModeButton).CornerRadius = UDim.new(0, 4) godModeButton.MouseButton1Click:Connect(function() activateGodMode(LocalPlayer) end)
 	local killAllButton = Instance.new("TextButton", scrollingFrame) killAllButton.Name = "Kill All (ACS)" killAllButton.LayoutOrder = #scrollingFrame:GetChildren() killAllButton.Size = UDim2.new(1, 0, 0, 30) killAllButton.BackgroundColor3 = Color3.fromRGB(150, 40, 40) killAllButton.Font = Enum.Font.SourceSansBold killAllButton.Text = "Kill All (ACS)" killAllButton.TextSize = 20 killAllButton.TextColor3 = Color3.fromRGB(255, 255, 255) Instance.new("UICorner", killAllButton).CornerRadius = UDim.new(0, 4) killAllButton.MouseButton1Click:Connect(killAllPlayers)
 	local infiniteAmmoButton = Instance.new("TextButton", scrollingFrame) infiniteAmmoButton.Name = "Infinite RPG Ammo" infiniteAmmoButton.LayoutOrder = #scrollingFrame:GetChildren() infiniteAmmoButton.Size = UDim2.new(1, 0, 0, 30) infiniteAmmoButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) infiniteAmmoButton.Font = Enum.Font.SourceSans infiniteAmmoButton.Text = "Infinite RPG Ammo" infiniteAmmoButton.TextSize = 20 infiniteAmmoButton.TextColor3 = Color3.fromRGB(220, 220, 220) Instance.new("UICorner", infiniteAmmoButton).CornerRadius = UDim.new(0, 4) infiniteAmmoButton.MouseButton1Click:Connect(function() local RS = game:GetService("ReplicatedStorage") local Configurations = RS:FindFirstChild("Configurations") if Configurations then local ACS_Guns = Configurations:FindFirstChild("ACS_Guns") if ACS_Guns then local RPG = ACS_Guns:FindFirstChild("RPG") if RPG then local Ammo = RPG:FindFirstChild("Ammo") if Ammo then local parent = Ammo.Parent local name = Ammo.Name Ammo:Destroy() local newAmmoValue = Instance.new("NumberValue") newAmmoValue.Name = name newAmmoValue.Value = 9999 newAmmoValue.Parent = parent end end end end end)
@@ -335,12 +415,42 @@ local function createGUI()
 	updatePlayerList()
 end
 
-local isGuiVisible = true function toggleGUI() isGuiVisible = not isGuiVisible local goalPosition = isGuiVisible and UDim2.new(0, 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) or UDim2.new(0, -mainFrame.AbsoluteSize.X - 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) mainFrame:TweenPosition(goalPosition, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true) end
-local function onCharacterAdded(character) task.wait(0.1) if not character or not character.Parent then return end local humanoid = character:WaitForChild("Humanoid") humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed end
-local function onPlayerAdded(player) if player ~= LocalPlayer then createEspForPlayer(player) end if gui then updatePlayerList() end end
-local function onPlayerRemoving(player) removeEspForPlayer(player) if originalHitboxSizes[player] then originalHitboxSizes[player] = nil end if gui then updatePlayerList() end end
-local function onInputBegan(input, gameProcessed) if gameProcessed then return end if input.KeyCode == CONFIG.ToggleGUIKey then toggleGUI() end if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = true end if input.KeyCode == CONFIG.TeleportKey then teleportToCursor() end if input.KeyCode == CONFIG.ToggleESPKey then if uiElements["ESP_Enabled"] then toggleState("ESP_Enabled", uiElements["ESP_Enabled"]) end end end
-local function onInputEnded(input) if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = false end end
+local isGuiVisible = true
+function toggleGUI()
+	isGuiVisible = not isGuiVisible
+	local goalPosition = isGuiVisible and UDim2.new(0, 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) or UDim2.new(0, -mainFrame.AbsoluteSize.X - 20, 0.5, -mainFrame.AbsoluteSize.Y / 2)
+	mainFrame:TweenPosition(goalPosition, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true)
+end
+
+local function onCharacterAdded(character)
+	task.wait(0.1)
+	if not character or not character.Parent then return end
+	local humanoid = character:WaitForChild("Humanoid")
+	humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed
+end
+
+local function onPlayerAdded(player)
+	if player ~= LocalPlayer then createEspForPlayer(player) end
+	if gui then updatePlayerList() end
+end
+
+local function onPlayerRemoving(player)
+	removeEspForPlayer(player)
+	if originalHitboxSizes[player] then originalHitboxSizes[player] = nil end
+	if gui then updatePlayerList() end
+end
+
+local function onInputBegan(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == CONFIG.ToggleGUIKey then toggleGUI() end
+	if input.UserInputType == CONFIG.AimbotKey then State.IsAimbotActive = true end -- Changed to check UserInputType
+	if input.KeyCode == CONFIG.TeleportKey then teleportToCursor() end
+	if input.KeyCode == CONFIG.ToggleESPKey then if uiElements["ESP_Enabled"] then toggleState("ESP_Enabled", uiElements["ESP_Enabled"]) end end
+end
+
+local function onInputEnded(input)
+	if input.UserInputType == CONFIG.AimbotKey then State.IsAimbotActive = false end -- Changed to check UserInputType
+end
 
 createGUI()
 Players.PlayerAdded:Connect(onPlayerAdded)
@@ -352,8 +462,13 @@ LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
 for _, player in ipairs(Players:GetPlayers()) do onPlayerAdded(player) end
 
-RunService.RenderStepped:Connect(function() updateAllEsp() updateAimbot() updateAimbotFOV() updateFly() updateHitboxes() end)
-
+RunService.RenderStepped:Connect(function()
+	updateAllEsp()
+	updateAimbot()
+	updateAimbotFOV()
+	updateFly()
+	updateHitboxes()
+end)
 
 print([[
  __  __                      ____      _
