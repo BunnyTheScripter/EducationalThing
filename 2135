@@ -1,20 +1,13 @@
-
---// SERVICES & VARIABLES //--
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
---// CONFIGURATION //--
-
 local CONFIG = {
-	-- Keybinds
 	ToggleGUIKey = Enum.KeyCode.RightShift,
 	ToggleESPKey = Enum.KeyCode.X,
 	AimbotKey = Enum.KeyCode.E,
@@ -22,7 +15,6 @@ local CONFIG = {
 	FlyUpKey = Enum.KeyCode.Space,
 	FlyDownKey = Enum.KeyCode.LeftControl,
 
-	-- Aimbot Settings
 	AimbotHardLock = false,
 	AimbotPrediction = 0.12, MaxAimbotPrediction = 0.5,
 	AimbotFOV = 250, MaxAimbotFOV = 1000,
@@ -30,13 +22,11 @@ local CONFIG = {
 	TargetPartName = "Head",
 	AimbotTargetParts = {"Head", "UpperTorso", "HumanoidRootPart"},
 
-	-- Movement Settings
 	DefaultWalkSpeed = 16, MaxWalkSpeed = 100,
 	FlySpeed = 50, MaxFlySpeed = 250,
 	TeleportMaxDistance = 200,
 }
 
---// ESP CONFIGURATION //--
 local ESP_CONFIG = {
 	MaxDistance = 1000,
 	TextSize = 14,
@@ -58,7 +48,6 @@ local ESP_CONFIG = {
 	RainbowColor = Color3.new(1, 0, 0)
 }
 
---// STATE & UI REFERENCES //--
 local State = {
 	IsAimbotActive = false,
 	IsFlyEnabled = false,
@@ -75,8 +64,6 @@ local State = {
 	HealthESP = true,
 	DistanceESP = true,
 	RainbowMode = false,
-
-	RPGSpam = false,
 }
 
 local uiElements = {}
@@ -88,62 +75,9 @@ local flyVelocity = nil
 local originalPartProperties = {}
 local boxStyleIndex, tracerOriginIndex = 1, 1
 
---// RPG SPAM HOOK (FIXED) //--
-local function hookRPGModule()
-	local acsGunsFolder = ReplicatedStorage:FindFirstChild("ACS_Guns", true) or ReplicatedStorage:FindFirstChild("Configurations", true)
-	if not acsGunsFolder then
-		print("mooncat: Could not find ACS_Guns or Configurations folder.")
-		return
-	end
-
-	local rpgFolder = acsGunsFolder:FindFirstChild("RPG")
-	if not rpgFolder then
-		print("mooncat: Could not find RPG folder in ACS configurations.")
-		return
-	end
-
-	local RpgSettingsModule = rpgFolder:FindFirstChild("Settings")
-	if not RpgSettingsModule or RpgSettingsModule.ClassName ~= "ModuleScript" then
-		print("mooncat: ACS RPG Settings module not found.")
-		return
-	end
-
-	-- The table of custom values we want to use when spam is enabled
-	local spamRPGSettings = {
-		Ammo = 9e9,
-		FireRate = 0, -- Set to 0 for fastest possible firing
-		GunType = 1, -- 1 = Automatic
-		Mode = "Auto",
-		['Burst'] = false, -- Ensure burst fire is disabled
-		['Semi'] = false,
-		['Auto'] = true,
-	}
-
-	-- This is the crucial part. We get the original table returned by the module.
-	local originalRPGSettings = require(RpgSettingsModule)
-	local rpgMetatable = {}
-
-	-- We create a metatable that will intercept any attempt to get a value from the settings table.
-	rpgMetatable.__index = function(self, key)
-		-- If RPGSpam is enabled AND we have a custom value for the requested key...
-		if State.RPGSpam and spamRPGSettings[key] ~= nil then
-			-- ...return our custom spam value.
-			return spamRPGSettings[key]
-		end
-		-- Otherwise, return the original, legitimate value from the module.
-		return originalRPGSettings[key]
-	end
-
-	-- Apply our hook. Now, any script that tries to read from the originalRPGSettings table will trigger our __index function.
-	setmetatable(originalRPGSettings, rpgMetatable)
-	print("mooncat: RPG Settings module hooked successfully.")
-end
-
---// CORE FUNCTIONS //--
-
 local function killAllPlayers()
-	if ReplicatedStorage:FindFirstChild("ACS_Engine") then
-		local acsEvent = ReplicatedStorage.ACS_Engine:FindFirstChild("Events", true)
+	if game.ReplicatedStorage:FindFirstChild("ACS_Engine") then
+		local acsEvent = game.ReplicatedStorage.ACS_Engine:FindFirstChild("Eventos", true)
 		if acsEvent and acsEvent:FindFirstChild("Damage") then
 			for _, player in pairs(Players:GetPlayers()) do
 				if player ~= LocalPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
@@ -179,31 +113,266 @@ local function updateWorkspaceCollision(enabled)
 	end
 end
 
---// ESP SYSTEM (Unchanged) //--
-local function updateLine(frame, from, to, thickness, color) local delta = to - from frame.Size = UDim2.fromOffset(delta.Magnitude, thickness) frame.Position = UDim2.fromOffset(from.X + delta.X / 2, from.Y + delta.Y / 2) frame.Rotation = math.deg(math.atan2(delta.Y, delta.X)) frame.BackgroundColor3 = color frame.Visible = true end
-local BONES = { { "Head", "UpperTorso" }, { "UpperTorso", "LowerTorso" }, { "UpperTorso", "LeftUpperArm" }, { "LeftUpperArm", "LeftLowerArm" }, { "LeftLowerArm", "LeftHand" }, { "UpperTorso", "RightUpperArm" }, { "RightUpperArm", "RightLowerArm" }, { "RightLowerArm", "RightHand" }, { "LowerTorso", "LeftUpperLeg" }, { "LeftUpperLeg", "LeftLowerLeg" }, { "LeftLowerLeg", "LeftFoot" }, { "LowerTorso", "RightUpperLeg" }, { "RightUpperLeg", "RightLowerLeg" }, { "RightLowerLeg", "RightFoot" }, }
-local function createEspForPlayer(player) if espDrawings[player] then return end local drawings = { Box = {}, Skeleton = {}, Highlight = (Instance.new("Highlight")), Tracer = (Instance.new("Frame")), Name = (Instance.new("TextLabel")), Distance = (Instance.new("TextLabel")), HealthBar = { Back = Instance.new("Frame"), Front = Instance.new("Frame") } } for i = 1, 12 do local line = Instance.new("Frame", espContainer) line.AnchorPoint = Vector2.new(0.5, 0.5) line.BorderSizePixel = 0 table.insert(drawings.Box, line) end for i = 1, #BONES do local line = Instance.new("Frame", espContainer) line.AnchorPoint = Vector2.new(0.5, 0.5) line.BorderSizePixel = 0 table.insert(drawings.Skeleton, line) end drawings.Tracer.Parent = espContainer drawings.Tracer.AnchorPoint = Vector2.new(0.5, 0.5) drawings.Tracer.BorderSizePixel = 0 for _, labelType in pairs({"Name", "Distance"}) do local label = drawings[labelType] label.Parent = espContainer label.BackgroundTransparency = 1 label.Font = Enum.Font.SourceSans label.TextStrokeTransparency = 0.5 label.TextColor3 = Color3.new(1, 1, 1) end drawings.HealthBar.Back.Parent = espContainer drawings.HealthBar.Back.BackgroundColor3 = Color3.fromRGB(40, 40, 40) drawings.HealthBar.Back.BorderSizePixel = 0 drawings.HealthBar.Front.Parent = drawings.HealthBar.Back drawings.HealthBar.Front.BorderSizePixel = 0 espDrawings[player] = drawings end
-local function removeEspForPlayer(player) if not espDrawings[player] then return end for _, collection in pairs(espDrawings[player]) do if typeof(collection) == "table" then for _, element in pairs(collection) do element:Destroy() end else collection:Destroy() end end espDrawings[player] = nil end
-local function hideDrawingsForPlayer(player) local drawings = espDrawings[player] if drawings then for _, element in pairs(drawings.Box) do element.Visible = false end for _, element in pairs(drawings.Skeleton) do element.Visible = false end drawings.Tracer.Visible, drawings.Name.Visible, drawings.Distance.Visible = false, false, false drawings.HealthBar.Back.Visible = false if drawings.Highlight.Parent then drawings.Highlight.Enabled = false end end end
-local function updateAllEsp() if not State.ESP_Enabled then espContainer.Visible = false for _, player in ipairs(Players:GetPlayers()) do if player.Character then local humanoid = player.Character:FindFirstChildOfClass("Humanoid") if humanoid then humanoid.HealthDisplayDistance = 100 humanoid.NameDisplayDistance = 100 end end hideDrawingsForPlayer(player) end return end espContainer.Visible = true if State.RainbowMode then ESP_CONFIG.RainbowColor = Color3.fromHSV((tick() * ESP_CONFIG.RainbowSpeed) % 1, 1, 1) end for _, player in ipairs(Players:GetPlayers()) do local char = player.Character local humanoid = char and char:FindFirstChildOfClass("Humanoid") local hrp = humanoid and char:FindFirstChild("HumanoidRootPart") if player ~= LocalPlayer and humanoid then humanoid.HealthDisplayDistance = 0 humanoid.NameDisplayDistance = 0 end if player == LocalPlayer or not espDrawings[player] or not hrp or not humanoid or humanoid.Health <= 0 then hideDrawingsForPlayer(player) continue end local drawings = espDrawings[player] local color = (State.TeamCheck and player.Team == LocalPlayer.Team) and ESP_CONFIG.AllyColor or ESP_CONFIG.EnemyColor if State.RainbowMode then color = ESP_CONFIG.RainbowColor end local distance = (hrp.Position - Camera.CFrame.Position).Magnitude local screenPos, onScreen = Camera:WorldToScreenPoint(hrp.Position) if not onScreen or distance > ESP_CONFIG.MaxDistance or (State.TeamCheck and not State.ShowTeam and player.Team == LocalPlayer.Team) then hideDrawingsForPlayer(player) continue end local size = char:GetExtentsSize() local screenHeight = math.abs((Camera:WorldToScreenPoint((hrp.CFrame * CFrame.new(0, size.Y/2, 0)).Position)).Y - (Camera:WorldToScreenPoint((hrp.CFrame * CFrame.new(0, -size.Y/2, 0)).Position)).Y) local screenWidth = screenHeight * 0.75 local topLeft = Vector2.new(screenPos.X - screenWidth/2, screenPos.Y - screenHeight/2) if State.ChamsESP then drawings.Highlight.Parent = char drawings.Highlight.Enabled = true drawings.Highlight.FillColor = ESP_CONFIG.ChamsFillColor drawings.Highlight.OutlineColor = ESP_CONFIG.ChamsOutlineColor drawings.Highlight.FillTransparency = ESP_CONFIG.ChamsFillTransparency drawings.Highlight.OutlineTransparency = ESP_CONFIG.ChamsOutlineTransparency drawings.Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop elseif drawings.Highlight.Parent then drawings.Highlight.Enabled = false end drawings.Name.Visible = State.NameESP drawings.Distance.Visible = State.DistanceESP if State.NameESP or State.DistanceESP then local infoText = "" if State.NameESP then infoText = player.DisplayName end if State.DistanceESP then infoText = infoText .. " [" .. math.floor(distance) .. "m]" end drawings.Name.Text = infoText drawings.Name.TextSize = ESP_CONFIG.TextSize drawings.Name.Position = UDim2.fromOffset(topLeft.X + screenWidth/2, topLeft.Y - ESP_CONFIG.TextSize - 2) drawings.Name.TextColor3 = color end drawings.HealthBar.Back.Visible = State.HealthESP if State.HealthESP then local healthPercent = humanoid.Health / humanoid.MaxHealth drawings.HealthBar.Back.Position = UDim2.fromOffset(topLeft.X - 7, topLeft.Y) drawings.HealthBar.Back.Size = UDim2.fromOffset(4, screenHeight) drawings.HealthBar.Front.Size = UDim2.new(1, 0, healthPercent, 0) drawings.HealthBar.Front.Position = UDim2.new(0, 0, 1 - healthPercent, 0) drawings.HealthBar.Front.BackgroundColor3 = Color3.fromHSV(0.33 * healthPercent, 1, 1) end drawings.Tracer.Visible = State.TracerESP if State.TracerESP then local origin local originStyle = ESP_CONFIG.TracerOrigins[tracerOriginIndex] if originStyle == "Bottom" then origin = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y) elseif originStyle == "Top" then origin = Vector2.new(Camera.ViewportSize.X/2, 0) elseif originStyle == "Mouse" then origin = UserInputService:GetMouseLocation() else origin = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) end updateLine(drawings.Tracer, origin, Vector2.new(screenPos.X, screenPos.Y), ESP_CONFIG.TracerThickness, color) end for i, line in ipairs(drawings.Box) do line.Visible = false end if State.BoxESP then local boxStyle = ESP_CONFIG.BoxStyles[boxStyleIndex] if boxStyle == "3D" then local corners = { hrp.CFrame * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2), hrp.CFrame * CFrame.new(size.X/2, -size.Y/2, -size.Z/2), hrp.CFrame * CFrame.new(size.X/2, size.Y/2, -size.Z/2), hrp.CFrame * CFrame.new(-size.X/2, size.Y/2, -size.Z/2), hrp.CFrame * CFrame.new(-size.X/2, -size.Y/2, size.Z/2), hrp.CFrame * CFrame.new(size.X/2, -size.Y/2, size.Z/2), hrp.CFrame * CFrame.new(size.X/2, size.Y/2, size.Z/2), hrp.CFrame * CFrame.new(-size.X/2, size.Y/2, size.Z/2) } local points, valid = {}, true for i, corner in ipairs(corners) do local p, v = Camera:WorldToScreenPoint(corner.Position) if not v then valid = false; break end points[i] = Vector2.new(p.X, p.Y) end if valid then local connections = { 1,2, 2,3, 3,4, 4,1, 5,6, 6,7, 7,8, 8,5, 1,5, 2,6, 3,7, 4,8 } for i=1, 12 do updateLine(drawings.Box[i], points[connections[i*2-1]], points[connections[i*2]], ESP_CONFIG.BoxThickness, color) end end elseif boxStyle == "Corner" then local cornerLength = math.min(screenWidth, screenHeight) * 0.2 local corners = { {topLeft, topLeft + Vector2.new(cornerLength, 0)}, {topLeft, topLeft + Vector2.new(0, cornerLength)}, {topLeft + Vector2.new(screenWidth, 0), topLeft + Vector2.new(screenWidth - cornerLength, 0)}, {topLeft + Vector2.new(screenWidth, 0), topLeft + Vector2.new(screenWidth, cornerLength)}, {topLeft + Vector2.new(0, screenHeight), topLeft + Vector2.new(cornerLength, screenHeight)}, {topLeft + Vector2.new(0, screenHeight), topLeft + Vector2.new(0, screenHeight - cornerLength)}, {topLeft + Vector2.new(screenWidth, screenHeight), topLeft + Vector2.new(screenWidth - cornerLength, screenHeight)}, {topLeft + Vector2.new(screenWidth, screenHeight), topLeft + Vector2.new(screenWidth, screenHeight - cornerLength)} } for i, data in ipairs(corners) do updateLine(drawings.Box[i], data[1], data[2], ESP_CONFIG.BoxThickness, color) end else local points = {topLeft, topLeft+Vector2.new(screenWidth,0), topLeft+Vector2.new(screenWidth, screenHeight), topLeft+Vector2.new(0, screenHeight)} for i=1,4 do updateLine(drawings.Box[i], points[i], points[i%4+1], ESP_CONFIG.BoxThickness, color) end end end for i, line in ipairs(drawings.Skeleton) do line.Visible = false end if State.SkeletonESP then local parts = {} for _, partName in ipairs({"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}) do parts[partName] = char:FindFirstChild(partName) end for i, bone in ipairs(BONES) do local p1, p2 = parts[bone[1]], parts[bone[2]] if p1 and p2 then local s1, v1 = Camera:WorldToScreenPoint(p1.Position) local s2, v2 = Camera:WorldToScreenPoint(p2.Position) if v1 and v2 then updateLine(drawings.Skeleton[i], Vector2.new(s1.X,s1.Y), Vector2.new(s2.X,s2.Y), ESP_CONFIG.SkeletonThickness, ESP_CONFIG.SkeletonColor) end end end end end end
+local function updateLine(frame, from, to, thickness, color)
+	local delta = to - from
+	frame.Size = UDim2.fromOffset(delta.Magnitude, thickness)
+	frame.Position = UDim2.fromOffset(from.X + delta.X / 2, from.Y + delta.Y / 2)
+	frame.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+	frame.BackgroundColor3 = color
+	frame.Visible = true
+end
 
---// AIMBOT & MOVEMENT FUNCTIONS (Unchanged) //--
+local BONES = {
+	{ "Head", "UpperTorso" },
+	{ "UpperTorso", "LowerTorso" },
+	{ "UpperTorso", "LeftUpperArm" }, { "LeftUpperArm", "LeftLowerArm" }, { "LeftLowerArm", "LeftHand" },
+	{ "UpperTorso", "RightUpperArm" }, { "RightUpperArm", "RightLowerArm" }, { "RightLowerArm", "RightHand" },
+	{ "LowerTorso", "LeftUpperLeg" }, { "LeftUpperLeg", "LeftLowerLeg" }, { "LeftLowerLeg", "LeftFoot" },
+	{ "LowerTorso", "RightUpperLeg" }, { "RightUpperLeg", "RightLowerLeg" }, { "RightLowerLeg", "RightFoot" },
+}
+
+local function createEspForPlayer(player)
+	if espDrawings[player] then return end
+	
+	local drawings = {
+		Box = {}, Skeleton = {},
+		Highlight = (Instance.new("Highlight")),
+		Tracer = (Instance.new("Frame")),
+		Name = (Instance.new("TextLabel")),
+		Distance = (Instance.new("TextLabel")),
+		HealthBar = {
+			Back = Instance.new("Frame"),
+			Front = Instance.new("Frame")
+		}
+	}
+	
+	for i = 1, 12 do
+		local line = Instance.new("Frame", espContainer)
+		line.AnchorPoint = Vector2.new(0.5, 0.5)
+		line.BorderSizePixel = 0
+		table.insert(drawings.Box, line)
+	end
+
+	for i = 1, #BONES do
+		local line = Instance.new("Frame", espContainer)
+		line.AnchorPoint = Vector2.new(0.5, 0.5)
+		line.BorderSizePixel = 0
+		table.insert(drawings.Skeleton, line)
+	end
+	
+	drawings.Tracer.Parent = espContainer
+	drawings.Tracer.AnchorPoint = Vector2.new(0.5, 0.5)
+	drawings.Tracer.BorderSizePixel = 0
+	
+	for _, labelType in pairs({"Name", "Distance"}) do
+		local label = drawings[labelType]
+		label.Parent = espContainer
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.SourceSans
+		label.TextStrokeTransparency = 0.5
+		label.TextColor3 = Color3.new(1, 1, 1)
+	end
+
+	drawings.HealthBar.Back.Parent = espContainer
+	drawings.HealthBar.Back.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	drawings.HealthBar.Back.BorderSizePixel = 0
+	drawings.HealthBar.Front.Parent = drawings.HealthBar.Back
+	drawings.HealthBar.Front.BorderSizePixel = 0
+	
+	espDrawings[player] = drawings
+end
+
+local function removeEspForPlayer(player)
+	if not espDrawings[player] then return end
+	for _, collection in pairs(espDrawings[player]) do
+		if typeof(collection) == "table" then
+			for _, element in pairs(collection) do element:Destroy() end
+		else
+			collection:Destroy()
+		end
+	end
+	espDrawings[player] = nil
+end
+
+local function hideDrawingsForPlayer(player)
+	local drawings = espDrawings[player]
+	if drawings then
+		for _, element in pairs(drawings.Box) do element.Visible = false end
+		for _, element in pairs(drawings.Skeleton) do element.Visible = false end
+		drawings.Tracer.Visible, drawings.Name.Visible, drawings.Distance.Visible = false, false, false
+		drawings.HealthBar.Back.Visible = false
+		if drawings.Highlight.Parent then drawings.Highlight.Enabled = false end
+	end
+end
+
+local function updateAllEsp()
+	if not State.ESP_Enabled then
+		espContainer.Visible = false
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.Character then
+				local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid.HealthDisplayDistance = 100
+					humanoid.NameDisplayDistance = 100
+				end
+			end
+			hideDrawingsForPlayer(player)
+		end
+		return
+	end
+
+	espContainer.Visible = true
+	if State.RainbowMode then ESP_CONFIG.RainbowColor = Color3.fromHSV((tick() * ESP_CONFIG.RainbowSpeed) % 1, 1, 1) end
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		local char = player.Character
+		local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+		local hrp = humanoid and char:FindFirstChild("HumanoidRootPart")
+
+		if player ~= LocalPlayer and humanoid then
+			humanoid.HealthDisplayDistance = 0
+			humanoid.NameDisplayDistance = 0
+		end
+		
+		if player == LocalPlayer or not espDrawings[player] or not hrp or not humanoid or humanoid.Health <= 0 then
+			hideDrawingsForPlayer(player)
+			continue
+		end
+
+		local drawings = espDrawings[player]
+		local color = (State.TeamCheck and player.Team == LocalPlayer.Team) and ESP_CONFIG.AllyColor or ESP_CONFIG.EnemyColor
+		if State.RainbowMode then color = ESP_CONFIG.RainbowColor end
+
+		local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
+		local screenPos, onScreen = Camera:WorldToScreenPoint(hrp.Position)
+		
+		if not onScreen or distance > ESP_CONFIG.MaxDistance or (State.TeamCheck and not State.ShowTeam and player.Team == LocalPlayer.Team) then
+			hideDrawingsForPlayer(player)
+			continue
+		end
+		
+		local size = char:GetExtentsSize()
+		local screenHeight = math.abs((Camera:WorldToScreenPoint((hrp.CFrame * CFrame.new(0, size.Y/2, 0)).Position)).Y - (Camera:WorldToScreenPoint((hrp.CFrame * CFrame.new(0, -size.Y/2, 0)).Position)).Y)
+		local screenWidth = screenHeight * 0.75
+		local topLeft = Vector2.new(screenPos.X - screenWidth/2, screenPos.Y - screenHeight/2)
+
+		if State.ChamsESP then
+			drawings.Highlight.Parent = char
+			drawings.Highlight.Enabled = true
+			drawings.Highlight.FillColor = ESP_CONFIG.ChamsFillColor
+			drawings.Highlight.OutlineColor = ESP_CONFIG.ChamsOutlineColor
+			drawings.Highlight.FillTransparency = ESP_CONFIG.ChamsFillTransparency
+			drawings.Highlight.OutlineTransparency = ESP_CONFIG.ChamsOutlineTransparency
+			drawings.Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		elseif drawings.Highlight.Parent then
+			drawings.Highlight.Enabled = false
+		end
+
+		drawings.Name.Visible = State.NameESP
+		drawings.Distance.Visible = State.DistanceESP
+		if State.NameESP or State.DistanceESP then
+			local infoText = ""
+			if State.NameESP then infoText = player.DisplayName end
+			if State.DistanceESP then infoText = infoText .. " [" .. math.floor(distance) .. "m]" end
+			drawings.Name.Text = infoText
+			drawings.Name.TextSize = ESP_CONFIG.TextSize
+			drawings.Name.Position = UDim2.fromOffset(topLeft.X + screenWidth/2, topLeft.Y - ESP_CONFIG.TextSize - 2)
+			drawings.Name.TextColor3 = color
+		end
+
+		drawings.HealthBar.Back.Visible = State.HealthESP
+		if State.HealthESP then
+			local healthPercent = humanoid.Health / humanoid.MaxHealth
+			drawings.HealthBar.Back.Position = UDim2.fromOffset(topLeft.X - 7, topLeft.Y)
+			drawings.HealthBar.Back.Size = UDim2.fromOffset(4, screenHeight)
+			drawings.HealthBar.Front.Size = UDim2.new(1, 0, healthPercent, 0)
+			drawings.HealthBar.Front.Position = UDim2.new(0, 0, 1 - healthPercent, 0)
+			drawings.HealthBar.Front.BackgroundColor3 = Color3.fromHSV(0.33 * healthPercent, 1, 1)
+		end
+
+		drawings.Tracer.Visible = State.TracerESP
+		if State.TracerESP then
+			local origin
+			local originStyle = ESP_CONFIG.TracerOrigins[tracerOriginIndex]
+			if originStyle == "Bottom" then origin = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+			elseif originStyle == "Top" then origin = Vector2.new(Camera.ViewportSize.X/2, 0)
+			elseif originStyle == "Mouse" then origin = UserInputService:GetMouseLocation()
+			else origin = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) end
+			updateLine(drawings.Tracer, origin, Vector2.new(screenPos.X, screenPos.Y), ESP_CONFIG.TracerThickness, color)
+		end
+
+		for i, line in ipairs(drawings.Box) do line.Visible = false end
+		if State.BoxESP then
+			local boxStyle = ESP_CONFIG.BoxStyles[boxStyleIndex]
+			if boxStyle == "3D" then
+				local corners = {
+					hrp.CFrame * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2), hrp.CFrame * CFrame.new(size.X/2, -size.Y/2, -size.Z/2),
+					hrp.CFrame * CFrame.new(size.X/2, size.Y/2, -size.Z/2), hrp.CFrame * CFrame.new(-size.X/2, size.Y/2, -size.Z/2),
+					hrp.CFrame * CFrame.new(-size.X/2, -size.Y/2, size.Z/2), hrp.CFrame * CFrame.new(size.X/2, -size.Y/2, size.Z/2),
+					hrp.CFrame * CFrame.new(size.X/2, size.Y/2, size.Z/2), hrp.CFrame * CFrame.new(-size.X/2, size.Y/2, size.Z/2)
+				}
+				local points, valid = {}, true
+				for i, corner in ipairs(corners) do
+					local p, v = Camera:WorldToScreenPoint(corner.Position)
+					if not v then valid = false; break end
+					points[i] = Vector2.new(p.X, p.Y)
+				end
+				if valid then
+					local connections = {
+						1,2, 2,3, 3,4, 4,1, 5,6, 6,7, 7,8, 8,5, 1,5, 2,6, 3,7, 4,8
+					}
+					for i=1, 12 do
+						updateLine(drawings.Box[i], points[connections[i*2-1]], points[connections[i*2]], ESP_CONFIG.BoxThickness, color)
+					end
+				end
+			elseif boxStyle == "Corner" then
+				local cornerLength = math.min(screenWidth, screenHeight) * 0.2
+				local corners = {
+					{topLeft, topLeft + Vector2.new(cornerLength, 0)}, {topLeft, topLeft + Vector2.new(0, cornerLength)},
+					{topLeft + Vector2.new(screenWidth, 0), topLeft + Vector2.new(screenWidth - cornerLength, 0)}, {topLeft + Vector2.new(screenWidth, 0), topLeft + Vector2.new(screenWidth, cornerLength)},
+					{topLeft + Vector2.new(0, screenHeight), topLeft + Vector2.new(cornerLength, screenHeight)}, {topLeft + Vector2.new(0, screenHeight), topLeft + Vector2.new(0, screenHeight - cornerLength)},
+					{topLeft + Vector2.new(screenWidth, screenHeight), topLeft + Vector2.new(screenWidth - cornerLength, screenHeight)}, {topLeft + Vector2.new(screenWidth, screenHeight), topLeft + Vector2.new(screenWidth, screenHeight - cornerLength)}
+				}
+				for i, data in ipairs(corners) do updateLine(drawings.Box[i], data[1], data[2], ESP_CONFIG.BoxThickness, color) end
+			else
+				local points = {topLeft, topLeft+Vector2.new(screenWidth,0), topLeft+Vector2.new(screenWidth, screenHeight), topLeft+Vector2.new(0, screenHeight)}
+				for i=1,4 do updateLine(drawings.Box[i], points[i], points[i%4+1], ESP_CONFIG.BoxThickness, color) end
+			end
+		end
+
+		for i, line in ipairs(drawings.Skeleton) do line.Visible = false end
+		if State.SkeletonESP then
+			local parts = {}
+			for _, partName in ipairs({"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}) do
+				parts[partName] = char:FindFirstChild(partName)
+			end
+			for i, bone in ipairs(BONES) do
+				local p1, p2 = parts[bone[1]], parts[bone[2]]
+				if p1 and p2 then
+					local s1, v1 = Camera:WorldToScreenPoint(p1.Position)
+					local s2, v2 = Camera:WorldToScreenPoint(p2.Position)
+                    if v1 and v2 then
+					    updateLine(drawings.Skeleton[i], Vector2.new(s1.X,s1.Y), Vector2.new(s2.X,s2.Y), ESP_CONFIG.SkeletonThickness, ESP_CONFIG.SkeletonColor)
+                    end
+				end
+			end
+		end
+	end
+end
+
 local function updateAimbotFOV() if not aimbotFovCircle then return end aimbotFovCircle.Visible = State.IsAimbotActive if State.IsAimbotActive then local mousePos = UserInputService:GetMouseLocation() aimbotFovCircle.Position = UDim2.fromOffset(mousePos.X, mousePos.Y) local fovSize = CONFIG.AimbotFOV * 2 aimbotFovCircle.Size = UDim2.fromOffset(fovSize, fovSize) end end
 local function getClosestPlayerToMouse() local closestTarget, smallestDistance = nil, CONFIG.AimbotFOV local mousePosition = UserInputService:GetMouseLocation() for _, player in ipairs(Players:GetPlayers()) do local char = player.Character if player ~= LocalPlayer and char and char:FindFirstChild(CONFIG.TargetPartName) and char:FindFirstChildOfClass("Humanoid") and char.Humanoid.Health > 0 then local targetPart = char[CONFIG.TargetPartName] local screenPosition, onScreen = Camera:WorldToScreenPoint(targetPart.Position) if onScreen then local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - mousePosition).Magnitude if distance < smallestDistance then smallestDistance, closestTarget = distance, targetPart end end end end return closestTarget end
 local function updateAimbot() if not State.IsAimbotActive then return end local target = getClosestPlayerToMouse() if target then local predictedPosition = target.Position + (target.AssemblyLinearVelocity * CONFIG.AimbotPrediction) local newCFrame = CFrame.new(Camera.CFrame.Position, predictedPosition) if CONFIG.AimbotHardLock then Camera.CFrame = newCFrame else Camera.CFrame = Camera.CFrame:Lerp(newCFrame, CONFIG.AimbotSmoothing) end end end
 local function updateFly() local char = LocalPlayer.Character if not State.IsFlyEnabled or not char or not char:FindFirstChild("HumanoidRootPart") then if flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end return end local hrp = char.HumanoidRootPart if not flyVelocity then flyVelocity = Instance.new("LinearVelocity", hrp) flyVelocity.MaxForce = math.huge flyVelocity.Attachment0 = hrp:FindFirstChildWhichIsA("Attachment") or Instance.new("Attachment", hrp) flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World end local moveVector = Vector3.new() if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector += Camera.CFrame.LookVector end if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector -= Camera.CFrame.LookVector end if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector += Camera.CFrame.RightVector end if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector -= Camera.CFrame.RightVector end if UserInputService:IsKeyDown(CONFIG.FlyUpKey) then moveVector += Vector3.new(0, 1, 0) end if UserInputService:IsKeyDown(CONFIG.FlyDownKey) then moveVector -= Vector3.new(0, 1, 0) end flyVelocity.VectorVelocity = moveVector.Magnitude > 0 and moveVector.Unit * CONFIG.FlySpeed or Vector3.zero end
 local function teleportToCursor() if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end local mouseLocation = UserInputService:GetMouseLocation() local unitRay = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y) local rayParams = RaycastParams.new() rayParams.FilterDescendantsInstances = {LocalPlayer.Character} rayParams.FilterType = Enum.RaycastFilterType.Exclude local result = Workspace:Raycast(unitRay.Origin, unitRay.Direction * CONFIG.TeleportMaxDistance, rayParams) local targetPos = result and result.Position or (unitRay.Origin + unitRay.Direction * CONFIG.TeleportMaxDistance) LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos) end
 
---// UI & STATE MANAGEMENT //--
 local gui, mainFrame, playerListFrame
 local function toggleState(stateKey, button)
 	State[stateKey] = not State[stateKey]
 	button.Text = button.Name .. ": " .. (State[stateKey] and "ON" or "OFF")
 	button.TextColor3 = State[stateKey] and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(255, 70, 70)
-	
 	if stateKey == "IsFlyEnabled" and not State[stateKey] and flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end
 	if stateKey == "IsWallBangEnabled" then updateWorkspaceCollision(State[stateKey]) end
-	-- The RPG spam logic is now handled by the metatable hook, so no extra function call is needed here.
 end
 
 local function updatePlayerList() if not playerListFrame then return end playerListFrame:ClearAllChildren() for i, player in ipairs(Players:GetPlayers()) do if player ~= LocalPlayer then local playerButton = Instance.new("TextButton", playerListFrame) playerButton.Name = player.Name playerButton.LayoutOrder = i playerButton.Size = UDim2.new(1, 0, 0, 25) playerButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70) playerButton.Font = Enum.Font.SourceSans playerButton.Text = player.Name playerButton.TextSize = 16 playerButton.TextColor3 = Color3.new(1, 1, 1) Instance.new("UICorner", playerButton).CornerRadius = UDim.new(0, 4) playerButton.MouseButton1Click:Connect(function() if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame end end) end end end
@@ -213,14 +382,17 @@ local function createGUI()
 	gui.Name = "UtilitySuiteGUI"
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 999
+	
 	espContainer = Instance.new("Frame", gui)
 	espContainer.Name = "ESPContainer"
 	espContainer.Size = UDim2.new(1, 0, 1, 0)
 	espContainer.BackgroundTransparency = 1
+	
 	local aimbotContainer = Instance.new("Frame", gui)
 	aimbotContainer.Name = "AimbotContainer"
 	aimbotContainer.Size = UDim2.new(1, 0, 1, 0)
 	aimbotContainer.BackgroundTransparency = 1
+	
 	aimbotFovCircle = Instance.new("Frame", aimbotContainer)
 	aimbotFovCircle.Name = "AimbotFovCircle"
 	aimbotFovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -228,21 +400,25 @@ local function createGUI()
 	aimbotFovCircle.BorderColor3 = Color3.fromRGB(170, 0, 255)
 	aimbotFovCircle.BorderSizePixel = 2
 	aimbotFovCircle.Visible = false
-	Instance.new("UICorner", aimbotFovCircle).CornerRadius = UDim.new(1, 0)
+	local circleCorner = Instance.new("UICorner", aimbotFovCircle)
+	circleCorner.CornerRadius = UDim.new(1, 0)
+
 	mainFrame = Instance.new("Frame", gui)
-	mainFrame.Size = UDim2.fromOffset(250, 520)
-	mainFrame.Position = UDim2.new(0, 20, 0.5, -260)
+	mainFrame.Size = UDim2.fromOffset(250, 480)
+	mainFrame.Position = UDim2.new(0, 20, 0.5, -240)
 	mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 	mainFrame.BorderSizePixel = 0
 	Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+
 	local title = Instance.new("TextLabel", mainFrame)
 	title.Size = UDim2.new(1, 0, 0, 40)
 	title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-	title.Text = "mooncat v4.9.1"
+	title.Text = "mooncat v4.8"
 	title.TextSize = 24
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	title.Font = Enum.Font.SourceSansBold
 	Instance.new("UICorner", title).CornerRadius = UDim.new(0, 8)
+
 	local scrollingFrame = Instance.new("ScrollingFrame", mainFrame)
 	scrollingFrame.Position = UDim2.new(0, 0, 0, 40)
 	scrollingFrame.Size = UDim2.new(1, 0, 1, -40)
@@ -251,18 +427,23 @@ local function createGUI()
 	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(170, 0, 255)
 	scrollingFrame.ScrollBarThickness = 6
+
 	local listLayout = Instance.new("UIListLayout", scrollingFrame)
 	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	listLayout.Padding = UDim.new(0, 10)
+
 	local padding = Instance.new("UIPadding", scrollingFrame)
 	padding.PaddingTop = UDim.new(0, 15)
 	padding.PaddingLeft = UDim.new(0, 10)
 	padding.PaddingRight = UDim.new(0, 10)
+
 	listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + padding.PaddingTop.Offset) end)
+
 	local function createCategory(text) local label = Instance.new("TextLabel", scrollingFrame) label.Name = text .. "Category" label.LayoutOrder = #scrollingFrame:GetChildren() label.Size = UDim2.new(1, 0, 0, 25) label.BackgroundTransparency = 1 label.Font = Enum.Font.SourceSansBold label.Text = text label.TextColor3 = Color3.new(1,1,1) label.TextSize = 20 label.TextXAlignment = Enum.TextXAlignment.Left return label end
 	local function createToggle(text, stateKey) local button = Instance.new("TextButton", scrollingFrame) button.Name = text button.LayoutOrder = #scrollingFrame:GetChildren() button.Size = UDim2.new(1, 0, 0, 30) button.BackgroundColor3 = Color3.fromRGB(60, 60, 60) button.Font = Enum.Font.SourceSans button.Text = text .. ": " .. (State[stateKey] and "ON" or "OFF") button.TextSize = 20 button.TextColor3 = State[stateKey] and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(255, 70, 70) Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4) uiElements[stateKey] = button local connection = button.MouseButton1Click:Connect(function() toggleState(stateKey, button) end) return button, connection end
 	local function createSlider(name, configKey, maxConfigKey, format, customUpdateFunc) local container = Instance.new("Frame", scrollingFrame) container.BackgroundTransparency = 1 container.LayoutOrder = #scrollingFrame:GetChildren() container.Size = UDim2.new(1, 0, 0, 40) local list = Instance.new("UIListLayout", container) list.Padding = UDim.new(0, 2) local label = Instance.new("TextLabel", container) label.Size = UDim2.new(1, 0, 0, 18) label.BackgroundTransparency = 1 label.TextColor3 = Color3.fromRGB(255, 255, 255) label.Font = Enum.Font.SourceSans label.TextSize = 18 label.TextXAlignment = Enum.TextXAlignment.Left local slider = Instance.new("Frame", container) slider.Size = UDim2.new(1, 0, 0, 12) slider.BackgroundColor3 = Color3.fromRGB(60, 60, 60) Instance.new("UICorner", slider).CornerRadius = UDim.new(0, 6) local bar = Instance.new("Frame", slider) bar.BackgroundColor3 = Color3.fromRGB(170, 0, 255) Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 6) local function updateVisuals() label.Text = name .. ": " .. string.format(format, CONFIG[configKey] or ESP_CONFIG[configKey]) bar.Size = UDim2.new((CONFIG[configKey] or ESP_CONFIG[configKey]) / (CONFIG[maxConfigKey] or ESP_CONFIG[maxConfigKey] or maxConfigKey), 0, 1, 0) end slider.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then local function updateValue(mouseInput) local relativeX = math.clamp(mouseInput.Position.X - slider.AbsolutePosition.X, 0, slider.AbsoluteSize.X) local percentage = relativeX / slider.AbsoluteSize.X local maxVal = CONFIG[maxConfigKey] or ESP_CONFIG[maxConfigKey] or maxConfigKey if CONFIG[configKey] then CONFIG[configKey] = percentage * maxVal else ESP_CONFIG[configKey] = percentage * maxVal end updateVisuals() if customUpdateFunc then customUpdateFunc() end end updateValue(input) local moveConn, releaseConn moveConn = UserInputService.InputChanged:Connect(function(mi) if mi.UserInputType == Enum.UserInputType.MouseMovement then updateValue(mi) end end) releaseConn = UserInputService.InputEnded:Connect(function(ei) if ei.UserInputType == Enum.UserInputType.MouseButton1 then moveConn:Disconnect(); releaseConn:Disconnect() end end) end end) updateVisuals() end
+
 	createCategory("ESP")
 	createToggle("Enable ESP", "ESP_Enabled")
 	createToggle("Box ESP", "BoxESP")
@@ -276,20 +457,55 @@ local function createGUI()
 	createToggle("Chams ESP", "ChamsESP")
 	createToggle("Rainbow Mode", "RainbowMode")
 	createSlider("Max Distance", "MaxDistance", 5000, "%.0fm")
+
 	createCategory("Combat")
 	local killAllButton = Instance.new("TextButton", scrollingFrame) killAllButton.Name = "Kill All (ACS)" killAllButton.LayoutOrder = #scrollingFrame:GetChildren() killAllButton.Size = UDim2.new(1, 0, 0, 30) killAllButton.BackgroundColor3 = Color3.fromRGB(150, 40, 40) killAllButton.Font = Enum.Font.SourceSansBold killAllButton.Text = "Kill All (ACS)" killAllButton.TextSize = 20 killAllButton.TextColor3 = Color3.fromRGB(255, 255, 255) Instance.new("UICorner", killAllButton).CornerRadius = UDim.new(0, 4) killAllButton.MouseButton1Click:Connect(killAllPlayers)
-	createToggle("RPG Spam", "RPGSpam")
+	local infiniteAmmoButton = Instance.new("TextButton", scrollingFrame)
+	infiniteAmmoButton.Name = "Infinite RPG Ammo"
+	infiniteAmmoButton.LayoutOrder = #scrollingFrame:GetChildren()
+	infiniteAmmoButton.Size = UDim2.new(1, 0, 0, 30)
+	infiniteAmmoButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	infiniteAmmoButton.Font = Enum.Font.SourceSans
+	infiniteAmmoButton.Text = "Infinite RPG Ammo"
+	infiniteAmmoButton.TextSize = 20
+	infiniteAmmoButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+	Instance.new("UICorner", infiniteAmmoButton).CornerRadius = UDim.new(0, 4)
+	infiniteAmmoButton.MouseButton1Click:Connect(function()
+		local RS = game:GetService("ReplicatedStorage")
+		local Configurations = RS:FindFirstChild("Configurations")
+		if Configurations then
+			local ACS_Guns = Configurations:FindFirstChild("ACS_Guns")
+			if ACS_Guns then
+				local RPG = ACS_Guns:FindFirstChild("RPG")
+				if RPG then
+					local Ammo = RPG:FindFirstChild("Ammo")
+					if Ammo then
+						local parent = Ammo.Parent
+						local name = Ammo.Name
+						Ammo:Destroy()
+						local newAmmoValue = Instance.new("NumberValue")
+						newAmmoValue.Name = name
+						newAmmoValue.Value = 9999
+						newAmmoValue.Parent = parent
+					end
+				end
+			end
+		end
+	end)
 	local targetButton = Instance.new("TextButton", scrollingFrame) targetButton.Name = "Aimbot Target" targetButton.LayoutOrder = #scrollingFrame:GetChildren() targetButton.Size = UDim2.new(1, 0, 0, 30) targetButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) targetButton.Font = Enum.Font.SourceSans targetButton.Text = "Target: " .. CONFIG.TargetPartName targetButton.TextSize = 20 targetButton.TextColor3 = Color3.fromRGB(220, 220, 220) Instance.new("UICorner", targetButton).CornerRadius = UDim.new(0, 4) targetButton.MouseButton1Click:Connect(function() aimbotTargetIndex = (aimbotTargetIndex % #CONFIG.AimbotTargetParts) + 1 CONFIG.TargetPartName = CONFIG.AimbotTargetParts[aimbotTargetIndex] targetButton.Text = "Target: " .. CONFIG.TargetPartName end)
 	createSlider("Aimbot FOV", "AimbotFOV", "MaxAimbotFOV", "%.0f")
 	createSlider("Aimbot Prediction", "AimbotPrediction", "MaxAimbotPrediction", "%.2f")
 	createSlider("Aimbot Smoothing", "AimbotSmoothing", "MaxAimbotSmoothing", "%.2f")
+
 	createCategory("Movement")
 	createToggle("Fly", "IsFlyEnabled")
 	createToggle("WallBang (Noclip)", "IsWallBangEnabled")
 	createSlider("WalkSpeed", "DefaultWalkSpeed", "MaxWalkSpeed", "%.0f", function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed end end)
 	createSlider("Fly Speed", "FlySpeed", "MaxFlySpeed", "%.0f")
+	
 	createCategory("Players")
 	playerListFrame = Instance.new("Frame", scrollingFrame) playerListFrame.Name = "PlayerListFrame" playerListFrame.LayoutOrder = #scrollingFrame:GetChildren() playerListFrame.Size = UDim2.new(1, 0, 0, 0) playerListFrame.AutomaticSize = Enum.AutomaticSize.Y playerListFrame.BackgroundTransparency = 1 local playerListLayout = Instance.new("UIListLayout", playerListFrame) playerListLayout.Padding = UDim.new(0, 5)
+
 	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 	updatePlayerList()
 end
@@ -297,15 +513,24 @@ end
 local isGuiVisible = true
 function toggleGUI() isGuiVisible = not isGuiVisible local goalPosition = isGuiVisible and UDim2.new(0, 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) or UDim2.new(0, -mainFrame.AbsoluteSize.X - 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) mainFrame:TweenPosition(goalPosition, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true) end
 
---// EVENT HANDLERS //--
-local function onCharacterAdded(character) task.wait(0.1) if not character or not character.Parent then return end local humanoid = character:WaitForChild("Humanoid") humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed end
+local function onCharacterAdded(character)
+	task.wait(0.1)
+	if not character or not character.Parent then return end
+	local humanoid = character:WaitForChild("Humanoid")
+	humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed
+end
 local function onPlayerAdded(player) if player ~= LocalPlayer then createEspForPlayer(player) end if gui then updatePlayerList() end end
 local function onPlayerRemoving(player) removeEspForPlayer(player) if gui then updatePlayerList() end end
-local function onInputBegan(input, gameProcessed) if gameProcessed then return end if input.KeyCode == CONFIG.ToggleGUIKey then toggleGUI() end if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = true end if input.KeyCode == CONFIG.TeleportKey then teleportToCursor() end if input.KeyCode == CONFIG.ToggleESPKey then if uiElements["ESP_Enabled"] then toggleState("ESP_Enabled", uiElements["ESP_Enabled"]) end end end
+
+local function onInputBegan(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == CONFIG.ToggleGUIKey then toggleGUI() end
+	if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = true end
+	if input.KeyCode == CONFIG.TeleportKey then teleportToCursor() end
+	if input.KeyCode == CONFIG.ToggleESPKey then if uiElements["ESP_Enabled"] then toggleState("ESP_Enabled", uiElements["ESP_Enabled"]) end end
+end
 local function onInputEnded(input) if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = false end end
 
---// INITIALIZATION //--
-pcall(hookRPGModule) -- Wrap in pcall to prevent errors if the module isn't found
 createGUI()
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(onPlayerRemoving)
@@ -323,4 +548,4 @@ RunService.RenderStepped:Connect(function()
 	updateFly()
 end)
 
-print("mooncat v4.9.1 (Client-Side) Loaded. Press RightShift to toggle the menu.")
+print("mooncat v4.8 (Client-Side) Loaded. Press RightShift to toggle the menu.")
