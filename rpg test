@@ -22,13 +22,13 @@ local CONFIG = {
 	AimbotSmoothing = 0.15, MaxAimbotSmoothing = 1.0,
 	TargetPartName = "Head",
 	AimbotTargetParts = {"Head", "UpperTorso", "HumanoidRootPart"},
-	
+
 	HitboxSize = 4, MaxHitboxSize = 50,
 
 	DefaultWalkSpeed = 16, MaxWalkSpeed = 100,
 	FlySpeed = 50, MaxFlySpeed = 250,
 	TeleportMaxDistance = 200,
-	
+
 	-- [+] RPG SPAM CONFIGS [+]
 	SpamDelay = 0.1, MaxSpamDelay = 1.0,
 }
@@ -42,12 +42,12 @@ local ESP_CONFIG = {
 	RainbowSpeed = 1,
 	BoxStyles = {"Corner", "Full", "3D"},
 	TracerOrigins = {"Bottom", "Top", "Mouse", "Center"},
-	
+
 	ChamsFillColor = Color3.fromRGB(170, 0, 255),
 	ChamsOutlineColor = Color3.fromRGB(0, 0, 0),
 	ChamsFillTransparency = 0.6,
 	ChamsOutlineTransparency = 0,
-	
+
 	EnemyColor = Color3.fromRGB(255, 70, 70),
 	AllyColor = Color3.fromRGB(70, 255, 70),
 	SkeletonColor = Color3.fromRGB(255, 255, 255),
@@ -59,7 +59,7 @@ local State = {
 	IsFlyEnabled = false,
 	IsWallBangEnabled = false,
 	HitboxESP = false,
-	
+
 	ESP_Enabled = true,
 	TeamCheck = false,
 	ShowTeam = false,
@@ -71,7 +71,7 @@ local State = {
 	HealthESP = true,
 	DistanceESP = true,
 	RainbowMode = false,
-	
+
 	-- [+] RPG SPAM STATE [+]
 	RpgSpamEnabled = false,
 	RpgSpamTargetPlayers = false,
@@ -118,19 +118,28 @@ function RpgSpam2.StartLoop()
 		while task.wait() do
 			if State.RpgSpamEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("RPG") then
 				pcall(function()
-					local rocketSystem = ReplicatedStorage:WaitForChild("RocketSystem")
-					local rocketHit = rocketSystem and rocketSystem.Events:WaitForChild("RocketHit")
+					local rocketSystem = ReplicatedStorage:WaitForChild("RocketSystem", 1)
+					if not rocketSystem then return end
+					local rocketHit = rocketSystem.Events:FindFirstChild("RocketHit")
 					if not rocketHit then return end
-					
-					local rpgTool = LocalPlayer.Character.RPG
+
+					-- Helper function to safely fire a rocket, checking state each time.
+					-- Returns `false` if the spam sequence should be aborted.
+					local function safeFire(targetPart)
+						if not State.RpgSpamEnabled then return false end -- Stop if disabled mid-spam
+						local rpgTool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("RPG")
+						if not rpgTool then return false end -- Stop if player loses the RPG
+
+						rocketHit:FireServer(targetPart.Position, Vector3.yAxis, rpgTool, rpgTool, targetPart)
+						task.wait(CONFIG.SpamDelay)
+						return true -- Indicate success to continue spamming
+					end
 
 					-- Target Players
 					if State.RpgSpamTargetPlayers then
 						for _, player in ipairs(Players:GetPlayers()) do
 							if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and not table.find(State.RpgSpamWhitelist, player.Name) then
-								local hrp = player.Character.HumanoidRootPart
-								rocketHit:FireServer(hrp.Position, Vector3.yAxis, rpgTool, rpgTool, hrp)
-								task.wait(CONFIG.SpamDelay)
+								if not safeFire(player.Character.HumanoidRootPart) then return end
 							end
 						end
 					end
@@ -140,8 +149,7 @@ function RpgSpam2.StartLoop()
 						local shieldTycoon = RpgSpam2.FindShield()
 						if shieldTycoon then
 							local shieldPart = shieldTycoon.PurchasedObjects["Base Shield"].Shield.Shield4
-							rocketHit:FireServer(shieldPart.Position, Vector3.yAxis, rpgTool, rpgTool, shieldPart)
-							task.wait(CONFIG.SpamDelay)
+							if not safeFire(shieldPart) then return end
 						end
 					end
 
@@ -150,8 +158,7 @@ function RpgSpam2.StartLoop()
 						local gunship = RpgSpam2.FindGunship()
 						if gunship then
 							local mainPart = gunship.MainPart
-							rocketHit:FireServer(mainPart.Position, Vector3.yAxis, rpgTool, rpgTool, mainPart)
-							task.wait(CONFIG.SpamDelay)
+							if not safeFire(mainPart) then return end
 						end
 					end
 				end)
@@ -238,7 +245,7 @@ local function updateHitboxes()
 						Transparency = hrp.Transparency
 					}
 				end
-				
+
 				local newSize = Vector3.new(CONFIG.HitboxSize, CONFIG.HitboxSize, CONFIG.HitboxSize)
 				if hrp.Size ~= newSize then
 					hrp.Size = newSize
@@ -269,7 +276,7 @@ local BONES = {
 
 local function createEspForPlayer(player)
 	if espDrawings[player] then return end
-	
+
 	local drawings = {
 		Box = {}, Skeleton = {},
 		Highlight = (Instance.new("Highlight")),
@@ -281,7 +288,7 @@ local function createEspForPlayer(player)
 			Front = Instance.new("Frame")
 		}
 	}
-	
+
 	for i = 1, 12 do
 		local line = Instance.new("Frame", espContainer)
 		line.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -295,11 +302,11 @@ local function createEspForPlayer(player)
 		line.BorderSizePixel = 0
 		table.insert(drawings.Skeleton, line)
 	end
-	
+
 	drawings.Tracer.Parent = espContainer
 	drawings.Tracer.AnchorPoint = Vector2.new(0.5, 0.5)
 	drawings.Tracer.BorderSizePixel = 0
-	
+
 	for _, labelType in pairs({"Name", "Distance"}) do
 		local label = drawings[labelType]
 		label.Parent = espContainer
@@ -314,7 +321,7 @@ local function createEspForPlayer(player)
 	drawings.HealthBar.Back.BorderSizePixel = 0
 	drawings.HealthBar.Front.Parent = drawings.HealthBar.Back
 	drawings.HealthBar.Front.BorderSizePixel = 0
-	
+
 	espDrawings[player] = drawings
 end
 
@@ -369,7 +376,7 @@ local function updateAllEsp()
 			humanoid.HealthDisplayDistance = 0
 			humanoid.NameDisplayDistance = 0
 		end
-		
+
 		if player == LocalPlayer or not espDrawings[player] or not hrp or not humanoid or humanoid.Health <= 0 then
 			hideDrawingsForPlayer(player)
 			continue
@@ -381,12 +388,12 @@ local function updateAllEsp()
 
 		local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
 		local screenPos, onScreen = Camera:WorldToScreenPoint(hrp.Position)
-		
+
 		if not onScreen or distance > ESP_CONFIG.MaxDistance or (State.TeamCheck and not State.ShowTeam and player.Team == LocalPlayer.Team) then
 			hideDrawingsForPlayer(player)
 			continue
 		end
-		
+
 		local size = char:GetExtentsSize()
 		local screenHeight = math.abs((Camera:WorldToScreenPoint((hrp.CFrame * CFrame.new(0, size.Y/2, 0)).Position)).Y - (Camera:WorldToScreenPoint((hrp.CFrame * CFrame.new(0, -size.Y/2, 0)).Position)).Y)
 		local screenWidth = screenHeight * 0.75
@@ -513,7 +520,14 @@ end
 
 local function updatePlayerList()
 	if not playerListFrame then return end
-	playerListFrame:ClearAllChildren()
+	
+	-- FIX: Clear existing player entries without destroying the essential UIListLayout object
+	for _, child in ipairs(playerListFrame:GetChildren()) do
+		if not child:IsA("UIListLayout") then
+			child:Destroy()
+		end
+	end
+
 	for i, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer then
 			local playerEntry = Instance.new("Frame", playerListFrame)
@@ -584,17 +598,17 @@ local function createGUI()
 	gui.Name = "UtilitySuiteGUI"
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 999
-	
+
 	espContainer = Instance.new("Frame", gui)
 	espContainer.Name = "ESPContainer"
 	espContainer.Size = UDim2.new(1, 0, 1, 0)
 	espContainer.BackgroundTransparency = 1
-	
+
 	local aimbotContainer = Instance.new("Frame", gui)
 	aimbotContainer.Name = "AimbotContainer"
 	aimbotContainer.Size = UDim2.new(1, 0, 1, 0)
 	aimbotContainer.BackgroundTransparency = 1
-	
+
 	aimbotFovCircle = Instance.new("Frame", aimbotContainer)
 	aimbotFovCircle.Name = "AimbotFovCircle"
 	aimbotFovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -628,7 +642,7 @@ local function createGUI()
 	scrollingFrame.BorderSizePixel = 0
 	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(170, 0, 255)
-	scrollingFrame.ScrollBarThickness = 6
+	scrollingFrame.ScrollBarThickness = 8 -- Made scrollbar slightly thicker for visibility
 
 	local listLayout = Instance.new("UIListLayout", scrollingFrame)
 	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -706,7 +720,7 @@ local function createGUI()
 	createToggle("WallBang (Noclip)", "IsWallBangEnabled")
 	createSlider("WalkSpeed", "DefaultWalkSpeed", "MaxWalkSpeed", "%.0f", function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed end end)
 	createSlider("Fly Speed", "FlySpeed", "MaxFlySpeed", "%.0f")
-	
+
 	-- [+] RPG SPAM 2 UI [+]
 	createCategory("RPG Spam 2")
 	createToggle("Spam RPG (Very Risk)", "RpgSpamEnabled")
@@ -714,7 +728,7 @@ local function createGUI()
 	createToggle("Target Base Shield", "RpgSpamTargetShield")
 	createToggle("Target AC-130 Gunship", "RpgSpamTargetGunship")
 	createSlider("Spam Delay", "SpamDelay", "MaxSpamDelay", "%.2fs")
-	
+
 	createCategory("Players")
 	playerListFrame = Instance.new("Frame", scrollingFrame) playerListFrame.Name = "PlayerListFrame" playerListFrame.LayoutOrder = #scrollingFrame:GetChildren() playerListFrame.Size = UDim2.new(1, 0, 0, 0) playerListFrame.AutomaticSize = Enum.AutomaticSize.Y playerListFrame.BackgroundTransparency = 1 local playerListLayout = Instance.new("UIListLayout", playerListFrame) playerListLayout.Padding = UDim.new(0, 5)
 
@@ -771,11 +785,11 @@ RunService.RenderStepped:Connect(function()
 end)
 
 print([[
- __  __                      ____      _    
-|  \/  | ___   ___  _ __    / ___|__ _| |_  
-| |\/| |/ _ \ / _ \| '_ \  | |   / _` | __| 
-| |  | | (_) | (_) | | | | | |__| (_| | |_  
-|_|  |_|\___/ \___/|_| |_|  \____\__,_|\__| 
+ __  __                      ____      _
+|  \/  | ___   ___  _ __    / ___|__ _| |_
+| |\/| |/ _ \ / _ \| '_ \  | |   / _` | __|
+| |  | | (_) | (_) | | | | | |__| (_| | |_
+|_|  |_|\___/ \___/|_| |_|  \____\__,_|\__|
 
 mooncat v4.8 (Client-Side) Loaded. Press RightShift to toggle the menu.
 RPG Spam 2 features have been integrated.
