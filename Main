@@ -1,1 +1,554 @@
-local v0=game:GetService("Players");local v1=game:GetService("UserInputService");local v2=game:GetService("RunService");local v3=game:GetService("TweenService");local v4=game:GetService("Workspace");local v5=game:GetService("Debris");local v6=v0.LocalPlayer;local v7=v4.CurrentCamera;local v8={ToggleGUIKey=Enum.KeyCode.RightShift,ToggleESPKey=Enum.KeyCode.X,AimbotKey=Enum.KeyCode.E,TeleportKey=Enum.KeyCode.Q,FlyUpKey=Enum.KeyCode.Space,FlyDownKey=Enum.KeyCode.LeftControl,HighlightFillColor=Color3.fromRGB(121 + 49 ,0 -0 ,2076 -(1483 + 338) ),HighlightOutlineColor=Color3.fromRGB(1695 -(1229 + 466) ,578 -(386 + 192) ,1206 -(696 + 510) ),HighlightFillTransparency=0.6 -0 ,TracerColor=Color3.fromRGB(1432 -(1091 + 171) ,0 + 0 ,802 -547 ),TracerThickness=6 -4 ,AimbotHardLock=false,AimbotPrediction=374.12 -(123 + 251) ,MaxAimbotPrediction=0.5 -0 ,AimbotFOV=948 -(208 + 490) ,AimbotSmoothing=0.15 + 0 ,MaxAimbotSmoothing=1206 -(902 + 303) ,TargetPartName="Head",AimbotTargetParts={"Head","UpperTorso","HumanoidRootPart"},HitboxSize=2 + 2 ,MaxHitboxSize=1700 -(1121 + 569) ,HitboxColor=Color3.fromRGB(384 -(22 + 192) ,836 -(660 + 176) ,1718 -(1404 + 59) ),HitboxTransparency=0.6 + 0 ,DefaultWalkSpeed=218 -(14 + 188) ,MaxWalkSpeed=134 -34 ,FlySpeed=815 -(468 + 297) ,MaxFlySpeed=812 -(334 + 228) ,TeleportMaxDistance=674 -474 };local v9={IsHighlightsEnabled=true,IsTracersEnabled=false,IsHitboxExpanderEnabled=true,IsHitboxVisualsEnabled=true,IsAimbotActive=false,IsInfiniteJumpEnabled=true,IsFlyEnabled=false};local v10={};local v11={};local v12;local v13=676 -(534 + 141) ;local v14=nil;local v15={};local v16={};local function v17(v40) if v16[v40] then local v195=0 + 0 ;while true do if (v195==(0 + 0)) then if v16[v40].DiedConn then v16[v40].DiedConn:Disconnect();end v16[v40]=nil;break;end end end if v15[v40] then local v196=0 + 0 ;while true do if (v196==(236 -(141 + 95))) then if v15[v40].Hitbox then v15[v40].Hitbox:Destroy();end v15[v40]=nil;break;end end end end local function v18(v41) local v42=0 -0 ;local v43;local v44;local v45;local v46;local v47;while true do if (v42==0) then v43=v0:GetPlayerFromCharacter(v41);if ( not v43 or (v43==v6)) then return;end v17(v43);v44=v41:FindFirstChildOfClass("Humanoid");v42=1 -0 ;end if (v42==(16 -10)) then v15[v43]={Hitbox=v46,Motor=v47};break;end if (v42==1) then v45=v41:FindFirstChild("HumanoidRootPart");if ( not v9.IsHitboxExpanderEnabled or  not v44 or (v44.Health<=0) or  not v45) then return;end v16[v43]={};v16[v43].DiedConn=v44.Died:Connect(function() v17(v43);end);v42=2 + 0 ;end if (v42==(4 + 1)) then v47.Part0=v45;v47.Part1=v46;v47.Enabled=true;v47.Parent=v45;v42=2 + 4 ;end if (v42==(5 -3)) then v46=Instance.new("Part");v46.Name="ExpandedHitbox";v46.Material=Enum.Material.Neon;v46.Anchored=false;v42=3;end if (v42==(3 + 0)) then v46.Massless=true;v46.CanCollide=false;v46.CanTouch=true;v46.CanQuery=false;v42=400 -(115 + 281) ;end if (v42==(9 -5)) then v46.Color=v8.HitboxColor;v46.Parent=v41;v47=Instance.new("Motor6D");v47.Name="HitboxMotor";v42=5 + 0 ;end end end local function v19() if  not v9.IsHitboxExpanderEnabled then return;end for v150,v151 in pairs(v15) do local v152=v150 and v150.Character ;local v153=v151 and v151.Hitbox ;local v154=v151 and v151.Motor ;if ( not v152 or  not v153 or  not v154 or  not v153.Parent or  not v154.Parent) then local v223=0 -0 ;while true do if ((0 -0)==v223) then v17(v150);continue;break;end end end local v155=v152:FindFirstChild("HumanoidRootPart");if  not v155 then local v224=867 -(550 + 317) ;while true do if (v224==(0 -0)) then v17(v150);continue;break;end end end local v156=v8.HitboxSize;v153.Size=Vector3.new(v156,v156,v156);v154.C0=CFrame.new();v153.Transparency=(v9.IsHitboxVisualsEnabled and v8.HitboxTransparency) or (1 -0) ;end end local function v20() for v160,v161 in ipairs(v0:GetPlayers()) do if ((v161~=v6) and v161.Character) then v18(v161.Character);end end end local function v21(v48) local v49=v48:FindFirstChild("PlayerHighlight") or Instance.new("Highlight") ;if  not v49.Parent then local v197=0;while true do if (v197==(1 -0)) then v49.FillColor=v8.HighlightFillColor;v49.OutlineColor=v8.HighlightOutlineColor;v197=5 -3 ;end if ((287 -(134 + 151))==v197) then v49.FillTransparency=v8.HighlightFillTransparency;v49.Parent=v48;break;end if (v197==0) then v49.Name="PlayerHighlight";v49.Adornee=v48;v197=1;end end end return v49;end local function v22() for v162,v163 in ipairs(v0:GetPlayers()) do if ((v163~=v6) and v163.Character) then v21(v163.Character).Enabled=v9.IsHighlightsEnabled;end end end local function v23() local v50=1;local v51=Vector2.new(v7.ViewportSize.X/(1667 -(970 + 695)) ,v7.ViewportSize.Y/(4 -2) );if ( not v9.IsTracersEnabled or  not v12.Visible) then for v227,v228 in ipairs(v11) do v228.Visible=false;end return;end for v164,v165 in ipairs(v0:GetPlayers()) do if ((v165~=v6) and v165.Character and v165.Character.PrimaryPart and v165.Character:FindFirstChildOfClass("Humanoid") and (v165.Character.Humanoid.Health>(0 -0))) then local v230=1990 -(582 + 1408) ;local v231;local v232;local v233;while true do if (v230==(3 -2)) then if v233 then local v324=0 -0 ;local v325;local v326;while true do if (v324==3) then v325.Visible=true;v50+=(3 -2) break;end if (v324==(2 -1)) then v326=Vector2.new(v232.X,v232.Y) -v51 ;v325.Size=UDim2.fromOffset(v326.Magnitude,v8.TracerThickness);v324=1826 -(1195 + 629) ;end if ((0 -0)==v324) then v325=v11[v50];if  not v325 then local v366=939 -(714 + 225) ;while true do if ((2 -0)==v366) then v325.AnchorPoint=Vector2.new(0.5 -0 ,241.5 -(187 + 54) );v11[v50]=v325;break;end if (v366==(780 -(162 + 618))) then v325=Instance.new("Frame",v12);v325.Name="TracerLine";v366=1 + 0 ;end if (v366==(807 -(118 + 688))) then v325.BackgroundColor3=v8.TracerColor;v325.BorderSizePixel=48 -(25 + 23) ;v366=1 + 1 ;end end end v324=1;end if (2==v324) then v325.Position=UDim2.fromOffset(v51.X + (v326.X/(1888 -(927 + 959))) ,v51.Y + (v326.Y/2) );v325.Rotation=math.deg(math.atan2(v326.Y,v326.X));v324=2 + 1 ;end end end break;end if (v230==0) then v231=v165.Character.PrimaryPart.Position;v232,v233=v7:WorldToScreenPoint(v231);v230=1 -0 ;end end end end for v166=v50, #v11 do v11[v166].Visible=false;end end local function v24() local v52=0 -0 ;local v53;local v54;local v55;while true do if ((98 -(11 + 86))==v52) then for v253,v254 in ipairs(v0:GetPlayers()) do local v255=0 -0 ;local v256;while true do if (v255==(0 + 0)) then v256=v254.Character;if ((v254~=v6) and v256 and v256:FindFirstChild(v8.TargetPartName) and v256:FindFirstChildOfClass("Humanoid") and (v256.Humanoid.Health>(285 -(175 + 110)))) then local v329=1636 -(1373 + 263) ;local v330;local v331;local v332;while true do if (v329==(1001 -(451 + 549))) then if v332 then local v367=0 + 0 ;local v368;while true do if ((1796 -(503 + 1293))==v367) then v368=(Vector2.new(v331.X,v331.Y) -v55).Magnitude;if (v368<v54) then v54,v53=v368,v330;end break;end end end break;end if (v329==(0 -0)) then v330=v256[v8.TargetPartName];v331,v332=v7:WorldToScreenPoint(v330.Position);v329=1 + 0 ;end end end break;end end end return v53;end if ((0 -0)==v52) then v53,v54=nil,v8.AimbotFOV;v55=v1:GetMouseLocation();v52=1385 -(746 + 638) ;end end end local function v25() if  not v9.IsAimbotActive then return;end local v56=v24();if v56 then local v198=0 + 0 ;local v199;local v200;while true do if (v198==(1 + 0)) then if v8.AimbotHardLock then v7.CFrame=v200;else v7.CFrame=v7.CFrame:Lerp(v200,v8.AimbotSmoothing);end break;end if (v198==(0 -0)) then v199=v56.Position + (v56.AssemblyLinearVelocity * v8.AimbotPrediction) ;v200=CFrame.new(v7.CFrame.Position,v199);v198=342 -(218 + 123) ;end end end end local function v26() local v57=0;local v58;local v59;local v60;while true do if (v57==(1581 -(1535 + 46))) then v58=v6.Character;if ( not v9.IsFlyEnabled or  not v58 or  not v58:FindFirstChild("HumanoidRootPart")) then local v298=0 + 0 ;while true do if (v298==(0 + 0)) then if v14 then local v350=560 -(306 + 254) ;while true do if (v350==(0 + 0)) then v14:Destroy();v14=nil;break;end end end return;end end end v59=v58.HumanoidRootPart;if  not v14 then v14=Instance.new("LinearVelocity",v59);v14.MaxForce=math.huge;v14.Attachment0=v59:FindFirstChildWhichIsA("Attachment") or Instance.new("Attachment",v59) ;v14.RelativeTo=Enum.ActuatorRelativeTo.World;end v57=1 -0 ;end if (v57==1) then v60=Vector3.new();if v1:IsKeyDown(Enum.KeyCode.W) then v60+=v7.CFrame.LookVector end if v1:IsKeyDown(Enum.KeyCode.S) then v60-=v7.CFrame.LookVector end if v1:IsKeyDown(Enum.KeyCode.D) then v60+=v7.CFrame.RightVector end v57=1469 -(899 + 568) ;end if (v57==2) then if v1:IsKeyDown(Enum.KeyCode.A) then v60-=v7.CFrame.RightVector end if v1:IsKeyDown(v8.FlyUpKey) then v60+=Vector3.new(0 + 0 ,2 -1 ,603 -(268 + 335) ) end if v1:IsKeyDown(v8.FlyDownKey) then v60-=Vector3.new(0,1,290 -(60 + 230) ) end v14.VectorVelocity=((v60.Magnitude>(572 -(426 + 146))) and (v60.Unit * v8.FlySpeed)) or Vector3.zero ;break;end end end local function v27() local v61=0 + 0 ;local v62;local v63;local v64;local v65;local v66;while true do if (v61==(0 -0)) then if ( not v6.Character or  not v6.Character:FindFirstChild("HumanoidRootPart")) then return;end v62=v1:GetMouseLocation();v61=1457 -(282 + 1174) ;end if (v61==(814 -(569 + 242))) then v65=v4:Raycast(v63.Origin,v63.Direction * v8.TeleportMaxDistance ,v64);v66=(v65 and v65.Position) or (v63.Origin + (v63.Direction * v8.TeleportMaxDistance)) ;v61=4;end if (v61==(5 -3)) then v64.FilterDescendantsInstances={v6.Character};v64.FilterType=Enum.RaycastFilterType.Exclude;v61=409 -(183 + 223) ;end if (v61==(1 + 3)) then v6.Character.HumanoidRootPart.CFrame=CFrame.new(v66);break;end if (v61==(1 + 0)) then v63=v7:ViewportPointToRay(v62.X,v62.Y);v64=RaycastParams.new();v61=1 + 1 ;end end end local v28,v29,v30;local function v31(v67,v68) local v69= not v9[v67];v9[v67]=v69;v68.Text=v68.Name   .. ": "   .. ((v69 and "ON") or "OFF") ;v68.TextColor3=(v69 and Color3.fromRGB(1024 -(706 + 318) ,178 + 77 ,1378 -(721 + 530) )) or Color3.fromRGB(1526 -(945 + 326) ,24 + 46 ,174 -104 ) ;if (v67=="IsHighlightsEnabled") then v22();end if (v67=="IsHitboxExpanderEnabled") then v20();end if ((v67=="IsFlyEnabled") and  not v69 and v14) then local v201=449 -(108 + 341) ;while true do if (v201==(0 + 0)) then v14:Destroy();v14=nil;break;end end end end local function v32() local v73=700 -(271 + 429) ;local v74;while true do if (v73==0) then if  not v30 then return;end v30:ClearAllChildren();v73=1 + 0 ;end if (v73==(1501 -(1408 + 92))) then v74=Instance.new("UIListLayout",v30);v74.Padding=UDim.new(0 -0 ,474 -(270 + 199) );v73=1088 -(461 + 625) ;end if ((1290 -(993 + 295))==v73) then v74.SortOrder=Enum.SortOrder.LayoutOrder;for v257,v258 in ipairs(v0:GetPlayers()) do if (v258~=v6) then local v310=0 + 0 ;local v311;while true do if (v310==(1172 -(418 + 753))) then v311.Size=UDim2.new(1 + 0 ,0 + 0 ,0 + 0 ,11 + 14 );v311.BackgroundColor3=Color3.fromRGB(18 + 52 ,599 -(406 + 123) ,44 + 26 );v311.Font=Enum.Font.SourceSans;v310=1771 -(1749 + 20) ;end if (v310==(1792 -(1010 + 780))) then v311.Text=v258.Name;v311.TextSize=16;v311.TextColor3=Color3.new(1 + 0 ,4 -3 ,1323 -(1249 + 73) );v310=1839 -(1045 + 791) ;end if (v310==(7 -4)) then Instance.new("UICorner",v311).CornerRadius=UDim.new(0,2 + 2 );v311.MouseButton1Click:Connect(function() if (v258.Character and v258.Character:FindFirstChild("HumanoidRootPart") and v6.Character and v6.Character:FindFirstChild("HumanoidRootPart")) then v6.Character.HumanoidRootPart.CFrame=v258.Character.HumanoidRootPart.CFrame;end end);break;end if ((1145 -(466 + 679))==v310) then v311=Instance.new("TextButton",v30);v311.Name=v258.Name;v311.LayoutOrder=v257;v310=2 -1 ;end end end end break;end end end local function v33() v28=Instance.new("ScreenGui");v28.Name="UtilitySuiteGUI";v28.ResetOnSpawn=false;v12=Instance.new("Frame",v28);v12.Name="TracerContainer";v12.Size=UDim2.new(1,505 -(351 + 154) ,2 -1 ,1900 -(106 + 1794) );v12.BackgroundTransparency=2 -1 ;v29=Instance.new("Frame",v28);v29.Size=UDim2.fromOffset(70 + 150 ,132 + 388 );v29.Position=UDim2.new(0 -0 ,54 -34 ,0.5 + 0 , -(896 -636));v29.BackgroundColor3=Color3.fromRGB(16 + 14 ,144 -(4 + 110) ,614 -(57 + 527) );v29.BorderSizePixel=1427 -(41 + 1386) ;Instance.new("UICorner",v29).CornerRadius=UDim.new(0 + 0 ,111 -(17 + 86) );local v85=Instance.new("TextLabel",v29);v85.Size=UDim2.new(1 + 0 ,0 -0 ,0 -0 ,206 -(122 + 44) );v85.BackgroundColor3=Color3.fromRGB(77 -32 ,149 -104 ,19 + 26 );v85.Text="mooncat";v85.TextSize=23 + 5 ;v85.TextColor3=Color3.fromRGB(37 + 218 ,516 -261 ,1981 -(1668 + 58) );v85.Font=Enum.Font.SourceSansBold;Instance.new("UICorner",v85).CornerRadius=UDim.new(65 -(30 + 35) ,20 -12 );v85.Active=true;v85.Selectable=true;v85.InputBegan:Connect(function(v168) if ((v168.UserInputType==Enum.UserInputType.MouseButton1) or (v168.UserInputType==Enum.UserInputType.Touch)) then local v245=0 + 0 ;local v246;local v247;local v248;local v249;while true do if (v245==(3 -1)) then v248=v1.InputChanged:Connect(function(v318) if ((v318.UserInputType==Enum.UserInputType.MouseMovement) or (v318.UserInputType==Enum.UserInputType.Touch)) then local v345=0 -0 ;local v346;while true do if (v345==(1257 -(1043 + 214))) then v346=v318.Position-v246 ;v29.Position=UDim2.new(v247.X.Scale,v247.X.Offset + v346.X ,v247.Y.Scale,v247.Y.Offset + v346.Y );break;end end end end);v249=v1.InputEnded:Connect(function(v319) if ((v319.UserInputType==Enum.UserInputType.MouseButton1) or (v319.UserInputType==Enum.UserInputType.Touch)) then local v347=0 + 0 ;while true do if (v347==0) then v248:Disconnect();v249:Disconnect();break;end end end end);break;end if (v245==(3 -2)) then v248=nil;v249=nil;v245=1214 -(323 + 889) ;end if (v245==(0 -0)) then v246=v168.Position;v247=v29.Position;v245=581 -(361 + 219) ;end end end end);local v96=Instance.new("ScrollingFrame",v29);v96.Position=UDim2.new(320 -(53 + 267) ,0 + 0 ,413 -(15 + 398) ,40);v96.Size=UDim2.new(983 -(18 + 964) ,0 -0 ,1, -(150 -110));v96.BackgroundTransparency=1 + 0 ;v96.BorderSizePixel=0 -0 ;v96.CanvasSize=UDim2.new(0 + 0 ,850 -(20 + 830) ,0 + 0 ,0 + 0 );v96.ScrollBarImageColor3=Color3.fromRGB(28 + 142 ,126 -(116 + 10) ,19 + 236 );v96.ScrollBarThickness=744 -(542 + 196) ;local v104=Instance.new("UIListLayout",v96);v104.SortOrder=Enum.SortOrder.LayoutOrder;v104.HorizontalAlignment=Enum.HorizontalAlignment.Center;v104.Padding=UDim.new(0 + 0 ,21 -11 );local v110=Instance.new("UIPadding",v96);v110.PaddingTop=UDim.new(0 + 0 ,27 -17 );v110.PaddingLeft=UDim.new(0 + 0 ,4 + 6 );v110.PaddingRight=UDim.new(0 + 0 ,26 -16 );v104:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() v96.CanvasSize=UDim2.new(0 -0 ,0 + 0 ,1551 -(1126 + 425) ,v104.AbsoluteContentSize.Y);end);local function v114(v170,v171) local v172=405 -(118 + 287) ;local v173;local v174;while true do if (v172==(0 + 0)) then v173=Instance.new("TextButton",v96);v173.Name=v170;v173.LayoutOrder= #v96:GetChildren();v173.Size=UDim2.new(1,1433 -(797 + 636) ,0 -0 ,1151 -(118 + 1003) );v172=2 -1 ;end if ((380 -(142 + 235))==v172) then return v173,v174;end if (v172==(9 -7)) then v173.TextColor3=(v9[v171] and Color3.fromRGB(0 -0 ,230 + 25 ,28 + 99 )) or Color3.fromRGB(581 -(192 + 134) ,1047 -(553 + 424) ,132 -62 ) ;Instance.new("UICorner",v173).CornerRadius=UDim.new(0 + 0 ,4);v10[v171]=v173;v174=v173.MouseButton1Click:Connect(function() v31(v171,v173);end);v172=3 + 0 ;end if (v172==(1 + 0)) then v173.BackgroundColor3=Color3.fromRGB(56 + 4 ,35 + 25 ,60);v173.Font=Enum.Font.SourceSans;v173.Text=v170   .. ": "   .. ((v9[v171] and "ON") or "OFF") ;v173.TextSize=9 + 11 ;v172=1808 -(1202 + 604) ;end end end local function v115(v175,v176,v177,v178,v179) local v180=0 + 0 ;local v181;local v182;local v183;local v184;local v185;local v186;while true do if (v180==(14 -7)) then function v186() local v304=0;while true do if (v304==(0 -0)) then v183.Text=v175   .. ": "   .. string.format(v178,v8[v176]) ;v185.Size=UDim2.new(v8[v176]/v8[v177] ,0 -0 ,1 + 0 ,0 -0 );break;end end end v184.InputBegan:Connect(function(v305) if (v305.UserInputType==Enum.UserInputType.MouseButton1) then local v320=753 -(239 + 514) ;local v321;local v322;local v323;while true do if (v320==(0 + 0)) then v321=nil;function v321(v356) local v357=0 + 0 ;local v358;local v359;while true do if (v357==2) then if v179 then v179();end break;end if (v357==1) then v8[v176]=v359 * v8[v177] ;v186();v357=1331 -(797 + 532) ;end if (v357==(0 + 0)) then v358=math.clamp(v356.Position.X-v184.AbsolutePosition.X ,0 + 0 ,v184.AbsoluteSize.X);v359=v358/v184.AbsoluteSize.X ;v357=1 + 0 ;end end end v320=2 -1 ;end if ((1204 -(373 + 829))==v320) then v323=v1.InputEnded:Connect(function(v360) if (v360.UserInputType==Enum.UserInputType.MouseButton1) then v322:Disconnect();v323:Disconnect();end end);break;end if (v320==(1 -0)) then v321(v305);v322=v1.InputChanged:Connect(function(v361) if (v361.UserInputType==Enum.UserInputType.MouseMovement) then v321(v361);end end);v320=733 -(476 + 255) ;end end end end);v186();break;end if (v180==(0 + 0)) then v181=Instance.new("Frame",v96);v181.BackgroundTransparency=1773 -(1733 + 39) ;v181.LayoutOrder= #v96:GetChildren();v180=1131 -(369 + 761) ;end if (v180==(1 + 0)) then v181.Size=UDim2.new(1,0 -0 ,0 -0 ,278 -(64 + 174) );v182=Instance.new("UIListLayout",v181);v182.Padding=UDim.new(0 + 0 ,2 -0 );v180=2 -0 ;end if ((341 -(144 + 192))==v180) then v184.BackgroundColor3=Color3.fromRGB(572 -(409 + 103) ,276 -(42 + 174) ,46 + 14 );Instance.new("UICorner",v184).CornerRadius=UDim.new(95 -(51 + 44) ,5 + 1 );v185=Instance.new("Frame",v184);v180=3 + 3 ;end if ((1508 -(363 + 1141))==v180) then v183.TextXAlignment=Enum.TextXAlignment.Left;v184=Instance.new("Frame",v181);v184.Size=UDim2.new(1 + 0 ,1580 -(1183 + 397) ,0 -0 ,675 -(174 + 489) );v180=12 -7 ;end if ((1908 -(830 + 1075))==v180) then v183.TextColor3=Color3.fromRGB(779 -(303 + 221) ,187 + 68 ,191 + 64 );v183.Font=Enum.Font.SourceSans;v183.TextSize=1993 -(1913 + 62) ;v180=3 + 1 ;end if ((8 -6)==v180) then v183=Instance.new("TextLabel",v181);v183.Size=UDim2.new(2 -1 ,1933 -(565 + 1368) ,0 -0 ,62 -44 );v183.BackgroundTransparency=1662 -(1477 + 184) ;v180=3 -0 ;end if (v180==(6 + 0)) then v185.BackgroundColor3=Color3.fromRGB(1026 -(564 + 292) ,0 -0 ,255);Instance.new("UICorner",v185).CornerRadius=UDim.new(0 -0 ,164 -(91 + 67) );v186=nil;v180=20 -13 ;end end end v114("Highlights","IsHighlightsEnabled");v114("Tracers","IsTracersEnabled");v114("Infinite Jump","IsInfiniteJumpEnabled");v114("Hitbox Expander","IsHitboxExpanderEnabled");v114("Visible Hitboxes","IsHitboxVisualsEnabled");v114("Fly","IsFlyEnabled");local v116,v117=v114("Target: Head","IsAimbotActive");if v117 then v117:Disconnect();end v116.Name="Aimbot Target";v116.Text="Target: "   .. v8.TargetPartName ;v116.TextColor3=Color3.fromRGB(220,524 -(244 + 60) ,170 + 50 );v116.MouseButton1Click:Connect(function() v13=(v13% #v8.AimbotTargetParts) + (477 -(41 + 435)) ;v8.TargetPartName=v8.AimbotTargetParts[v13];v116.Text="Target: "   .. v8.TargetPartName ;end);v115("WalkSpeed","DefaultWalkSpeed","MaxWalkSpeed","%.0f",function() if (v6.Character and v6.Character:FindFirstChild("Humanoid")) then v6.Character.Humanoid.WalkSpeed=v8.DefaultWalkSpeed;end end);v115("Fly Speed","FlySpeed","MaxFlySpeed","%.0f");v115("Hitbox Size","HitboxSize","MaxHitboxSize","%.2f");v115("Aimbot Prediction","AimbotPrediction","MaxAimbotPrediction","%.2f");v115("Aimbot Smoothing","AimbotSmoothing","MaxAimbotSmoothing","%.2f");local v121=Instance.new("TextLabel",v96);v121.LayoutOrder= #v96:GetChildren();v121.Size=UDim2.new(1002 -(938 + 63) ,0,0 + 0 ,25);v121.BackgroundTransparency=1;v121.Font=Enum.Font.SourceSansBold;v121.Text="--- Players ---";v121.TextColor3=Color3.new(1126 -(936 + 189) ,1 + 0 ,1);v121.TextSize=1633 -(1565 + 48) ;v30=Instance.new("Frame",v96);v30.Name="PlayerListFrame";v30.LayoutOrder= #v96:GetChildren();v30.Size=UDim2.new(4 -3 ,0 + 0 ,0 -0 ,1288 -(782 + 356) );v30.BackgroundTransparency=1;local v133=Instance.new("UIListLayout",v30);v133.Padding=UDim.new(881 -(614 + 267) ,272 -(176 + 91) );v133:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() v30.Size=UDim2.new(2 -1 ,0 -0 ,1092 -(975 + 117) ,v133.AbsoluteContentSize.Y);end);v28.Parent=v6:WaitForChild("PlayerGui");v32();end local v34=true;function toggleGUI() local v136=0 -0 ;while true do if (v136==0) then v34= not v34;v29.Visible=v34;break;end end end local function v35(v137) task.wait(1875.1 -(157 + 1718) );if ( not v137 or  not v137.Parent) then return;end local v138=v137:WaitForChild("Humanoid");v138.WalkSpeed=v8.DefaultWalkSpeed;v138.StateChanged:Connect(function(v191,v192) if (v9.IsInfiniteJumpEnabled and (v192==Enum.HumanoidStateType.Freefall)) then v138:ChangeState(Enum.HumanoidStateType.Jumping);end end);v22();v20();end local function v36(v141) v141.CharacterAdded:Connect(function(v193) local v194=0 + 0 ;while true do if ((0 -0)==v194) then task.wait(0.2 -0 );if (v193 and v193.Parent) then local v314=0 -0 ;while true do if (v314==(0 -0)) then v21(v193).Enabled=v9.IsHighlightsEnabled;v18(v193);break;end end end break;end end end);if v141.Character then local v202=1018 -(697 + 321) ;while true do if (v202==(0 -0)) then v21(v141.Character).Enabled=v9.IsHighlightsEnabled;v18(v141.Character);break;end end end if v28 then v32();end end local function v37(v142) local v143=0 -0 ;while true do if (v143==(0 -0)) then v17(v142);if v28 then v32();end break;end end end local function v38(v144,v145) local v146=0 + 0 ;while true do if (v146==1) then if (v144.KeyCode==v8.AimbotKey) then v9.IsAimbotActive=true;end if (v144.KeyCode==v8.TeleportKey) then v27();end v146=3 -1 ;end if (v146==(0 -0)) then if v145 then return;end if (v144.KeyCode==v8.ToggleGUIKey) then toggleGUI();end v146=1228 -(322 + 905) ;end if (v146==(613 -(602 + 9))) then if (v144.KeyCode==v8.ToggleESPKey) then if v10['IsHighlightsEnabled'] then v31("IsHighlightsEnabled",v10['IsHighlightsEnabled']);end end break;end end end local function v39(v147) if (v147.KeyCode==v8.AimbotKey) then v9.IsAimbotActive=false;end end v33();v0.PlayerAdded:Connect(v36);v0.PlayerRemoving:Connect(v37);v1.InputBegan:Connect(v38);v1.InputEnded:Connect(v39);if v6.Character then v35(v6.Character);end v6.CharacterAdded:Connect(v35);for v148,v149 in ipairs(v0:GetPlayers()) do if (v149~=v6) then v36(v149);end end v2.RenderStepped:Connect(function() v25();v23();v26();v19();end);print("mooncat v3.9 (Client-Side) Loaded. Press RightShift to toggle the menu.");
+--// SERVICES & VARIABLES //--
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+--// CONFIGURATION //--
+
+local CONFIG = {
+	-- Keybinds
+	ToggleGUIKey = Enum.KeyCode.RightShift,
+	ToggleESPKey = Enum.KeyCode.X,
+	AimbotKey = Enum.KeyCode.E,
+	TeleportKey = Enum.KeyCode.Q,
+	FlyUpKey = Enum.KeyCode.Space,
+	FlyDownKey = Enum.KeyCode.LeftControl,
+
+	-- Aimbot Settings
+	AimbotHardLock = false,
+	AimbotPrediction = 0.12, MaxAimbotPrediction = 0.5,
+	AimbotFOV = 250, MaxAimbotFOV = 1000,
+	AimbotSmoothing = 0.15, MaxAimbotSmoothing = 1.0,
+	TargetPartName = "Head",
+	AimbotTargetParts = {"Head", "UpperTorso", "HumanoidRootPart"},
+
+	-- Movement Settings
+	DefaultWalkSpeed = 16, MaxWalkSpeed = 100,
+	FlySpeed = 50, MaxFlySpeed = 250,
+	TeleportMaxDistance = 200,
+}
+
+--// ESP CONFIGURATION (NEW) //--
+local ESP_CONFIG = {
+	MaxDistance = 1000,
+	TextSize = 14,
+	BoxThickness = 1,
+	TracerThickness = 1,
+	SkeletonThickness = 1.5,
+	RainbowSpeed = 1,
+	BoxStyles = {"Corner", "Full", "3D"},
+	TracerOrigins = {"Bottom", "Top", "Mouse", "Center"},
+	
+	-- Chams (formerly Highlights)
+	ChamsFillColor = Color3.fromRGB(170, 0, 255),
+	ChamsOutlineColor = Color3.fromRGB(0, 0, 0),
+	ChamsFillTransparency = 0.6,
+	ChamsOutlineTransparency = 0,
+	
+	-- Colors
+	EnemyColor = Color3.fromRGB(255, 70, 70),
+	AllyColor = Color3.fromRGB(70, 255, 70),
+	SkeletonColor = Color3.fromRGB(255, 255, 255),
+	RainbowColor = Color3.new(1, 0, 0)
+}
+
+--// STATE & UI REFERENCES //--
+local State = {
+	-- Old State
+	IsAimbotActive = false,
+	IsFlyEnabled = false,
+	IsWallBangEnabled = false,
+	
+	-- ESP State
+	ESP_Enabled = true,
+	TeamCheck = false,
+	ShowTeam = false,
+	BoxESP = true,
+	TracerESP = false,
+	SkeletonESP = false,
+	ChamsESP = true,
+	NameESP = true,
+	HealthESP = true,
+	DistanceESP = true,
+	RainbowMode = false,
+}
+
+local uiElements = {}
+local espDrawings = {} -- Master table for all ESP drawings
+local espContainer -- Frame to hold all ESP elements
+local aimbotFovCircle
+local aimbotTargetIndex = 1
+local flyVelocity = nil
+local originalPartProperties = {}
+local boxStyleIndex, tracerOriginIndex = 1, 1 -- For dropdown cycle
+
+--// CORE FUNCTIONS //--
+
+local function killAllPlayers()
+	if game.ReplicatedStorage:FindFirstChild("ACS_Engine") then
+		local acsEvent = game.ReplicatedStorage.ACS_Engine:FindFirstChild("Eventos", true)
+		if acsEvent and acsEvent:FindFirstChild("Damage") then
+			for _, player in pairs(Players:GetPlayers()) do
+				if player ~= LocalPlayer and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+					acsEvent.Damage:FireServer(player.Character.Humanoid, 100, 100, "Head")
+				end
+			end
+		else print("Could not find ACS Damage Event!") end
+	else print("Game doesn't have ACS!") end
+end
+
+local function updateWorkspaceCollision(enabled)
+	if enabled then
+		originalPartProperties = {}
+		for _, part in ipairs(Workspace:GetDescendants()) do
+			if part:IsA("BasePart") and not part:IsDescendantOf(LocalPlayer.Character) then
+				local isPlayerPart = false
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p ~= LocalPlayer and p.Character and part:IsDescendantOf(p.Character) then isPlayerPart = true; break end
+				end
+				if not isPlayerPart then
+					originalPartProperties[part] = { CanCollide = part.CanCollide, CanQuery = part.CanQuery }
+					part.CanCollide, part.CanQuery = false, false
+				end
+			end
+		end
+	else
+		for part, properties in pairs(originalPartProperties) do
+			if part and part.Parent then
+				part.CanCollide, part.CanQuery = properties.CanCollide, properties.CanQuery
+			end
+		end
+		originalPartProperties = {}
+	end
+end
+
+--// ESP SYSTEM (NEW & REWORKED) //--
+
+local function updateLine(frame, from, to, thickness, color)
+	local delta = to - from
+	frame.Size = UDim2.fromOffset(delta.Magnitude, thickness)
+	frame.Position = UDim2.fromOffset(from.X + delta.X / 2, from.Y + delta.Y / 2)
+	frame.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+	frame.BackgroundColor3 = color
+	frame.Visible = true
+end
+
+local BONES = {
+	{ "Head", "UpperTorso" },
+	{ "UpperTorso", "LowerTorso" },
+	{ "UpperTorso", "LeftUpperArm" }, { "LeftUpperArm", "LeftLowerArm" }, { "LeftLowerArm", "LeftHand" },
+	{ "UpperTorso", "RightUpperArm" }, { "RightUpperArm", "RightLowerArm" }, { "RightLowerArm", "RightHand" },
+	{ "LowerTorso", "LeftUpperLeg" }, { "LeftUpperLeg", "LeftLowerLeg" }, { "LeftLowerLeg", "LeftFoot" },
+	{ "LowerTorso", "RightUpperLeg" }, { "RightUpperLeg", "RightLowerLeg" }, { "RightLowerLeg", "RightFoot" },
+}
+
+local function createEspForPlayer(player)
+	if espDrawings[player] then return end
+	
+	local drawings = {
+		Box = {}, Skeleton = {},
+		Highlight = (Instance.new("Highlight")),
+		Tracer = (Instance.new("Frame")),
+		Name = (Instance.new("TextLabel")),
+		Distance = (Instance.new("TextLabel")),
+		HealthBar = {
+			Back = Instance.new("Frame"),
+			Front = Instance.new("Frame")
+		}
+	}
+	
+	-- Box (12 lines for 3D box)
+	for i = 1, 12 do
+		local line = Instance.new("Frame", espContainer)
+		line.AnchorPoint = Vector2.new(0.5, 0.5)
+		line.BorderSizePixel = 0
+		table.insert(drawings.Box, line)
+	end
+
+	-- Skeleton (14 lines)
+	for i = 1, #BONES do
+		local line = Instance.new("Frame", espContainer)
+		line.AnchorPoint = Vector2.new(0.5, 0.5)
+		line.BorderSizePixel = 0
+		table.insert(drawings.Skeleton, line)
+	end
+	
+	-- Tracer
+	drawings.Tracer.Parent = espContainer
+	drawings.Tracer.AnchorPoint = Vector2.new(0.5, 0.5)
+	drawings.Tracer.BorderSizePixel = 0
+	
+	-- Text
+	for _, labelType in pairs({"Name", "Distance"}) do
+		local label = drawings[labelType]
+		label.Parent = espContainer
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.SourceSans
+		label.TextStrokeTransparency = 0.5
+		label.TextColor3 = Color3.new(1, 1, 1)
+	end
+
+	-- Health Bar
+	drawings.HealthBar.Back.Parent = espContainer
+	drawings.HealthBar.Back.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	drawings.HealthBar.Back.BorderSizePixel = 0
+	drawings.HealthBar.Front.Parent = drawings.HealthBar.Back
+	drawings.HealthBar.Front.BorderSizePixel = 0
+	
+	espDrawings[player] = drawings
+end
+
+local function removeEspForPlayer(player)
+	if not espDrawings[player] then return end
+	for _, collection in pairs(espDrawings[player]) do
+		if typeof(collection) == "table" then
+			for _, element in pairs(collection) do element:Destroy() end
+		else
+			collection:Destroy()
+		end
+	end
+	espDrawings[player] = nil
+end
+
+local function hideDrawingsForPlayer(player)
+	local drawings = espDrawings[player]
+	if drawings then
+		for _, element in pairs(drawings.Box) do element.Visible = false end
+		for _, element in pairs(drawings.Skeleton) do element.Visible = false end
+		drawings.Tracer.Visible, drawings.Name.Visible, drawings.Distance.Visible = false, false, false
+		drawings.HealthBar.Back.Visible = false
+		if drawings.Highlight.Parent then drawings.Highlight.Enabled = false end
+	end
+end
+
+local function updateAllEsp()
+	if not State.ESP_Enabled then
+		espContainer.Visible = false
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.Character then
+				local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid.HealthDisplayDistance = 100
+					humanoid.NameDisplayDistance = 100
+				end
+			end
+			hideDrawingsForPlayer(player)
+		end
+		return
+	end
+
+	espContainer.Visible = true
+	if State.RainbowMode then ESP_CONFIG.RainbowColor = Color3.fromHSV((tick() * ESP_CONFIG.RainbowSpeed) % 1, 1, 1) end
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		local char = player.Character
+		local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+		local hrp = humanoid and char:FindFirstChild("HumanoidRootPart")
+
+		if player ~= LocalPlayer and humanoid then
+			humanoid.HealthDisplayDistance = 0
+			humanoid.NameDisplayDistance = 0
+		end
+		
+		if player == LocalPlayer or not espDrawings[player] or not hrp or not humanoid or humanoid.Health <= 0 then
+			hideDrawingsForPlayer(player)
+			continue
+		end
+
+		local drawings = espDrawings[player]
+		local color = (State.TeamCheck and player.Team == LocalPlayer.Team) and ESP_CONFIG.AllyColor or ESP_CONFIG.EnemyColor
+		if State.RainbowMode then color = ESP_CONFIG.RainbowColor end
+
+		-- [[ FIX START: Reverted to the functional positioning logic from v4.3 ]] --
+		local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
+		local screenPos, onScreen = Camera:WorldToScreenPoint(hrp.Position)
+		
+		if not onScreen or distance > ESP_CONFIG.MaxDistance or (State.TeamCheck and not State.ShowTeam and player.Team == LocalPlayer.Team) then
+			hideDrawingsForPlayer(player)
+			continue
+		end
+		
+		local size = char:GetExtentsSize()
+		local screenHeight = math.abs((Camera:WorldToScreenPoint((hrp.CFrame * CFrame.new(0, size.Y/2, 0)).Position)).Y - (Camera:WorldToScreenPoint((hrp.CFrame * CFrame.new(0, -size.Y/2, 0)).Position)).Y)
+		local screenWidth = screenHeight * 0.75
+		local topLeft = Vector2.new(screenPos.X - screenWidth/2, screenPos.Y - screenHeight/2)
+		-- [[ FIX END ]] --
+
+		-- Chams
+		if State.ChamsESP then
+			drawings.Highlight.Parent = char
+			drawings.Highlight.Enabled = true
+			drawings.Highlight.FillColor = ESP_CONFIG.ChamsFillColor
+			drawings.Highlight.OutlineColor = ESP_CONFIG.ChamsOutlineColor
+			drawings.Highlight.FillTransparency = ESP_CONFIG.ChamsFillTransparency
+			drawings.Highlight.OutlineTransparency = ESP_CONFIG.ChamsOutlineTransparency
+			drawings.Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		elseif drawings.Highlight.Parent then
+			drawings.Highlight.Enabled = false
+		end
+
+		-- Text Info
+		drawings.Name.Visible = State.NameESP
+		drawings.Distance.Visible = State.DistanceESP
+		if State.NameESP or State.DistanceESP then
+			local infoText = ""
+			if State.NameESP then infoText = player.DisplayName end
+			if State.DistanceESP then infoText = infoText .. " [" .. math.floor(distance) .. "m]" end
+			drawings.Name.Text = infoText
+			drawings.Name.TextSize = ESP_CONFIG.TextSize
+			drawings.Name.Position = UDim2.fromOffset(topLeft.X + screenWidth/2, topLeft.Y - ESP_CONFIG.TextSize - 2)
+			drawings.Name.TextColor3 = color
+		end
+
+		-- Health Bar
+		drawings.HealthBar.Back.Visible = State.HealthESP
+		if State.HealthESP then
+			local healthPercent = humanoid.Health / humanoid.MaxHealth
+			drawings.HealthBar.Back.Position = UDim2.fromOffset(topLeft.X - 7, topLeft.Y)
+			drawings.HealthBar.Back.Size = UDim2.fromOffset(4, screenHeight)
+			drawings.HealthBar.Front.Size = UDim2.new(1, 0, healthPercent, 0)
+			drawings.HealthBar.Front.Position = UDim2.new(0, 0, 1 - healthPercent, 0)
+			drawings.HealthBar.Front.BackgroundColor3 = Color3.fromHSV(0.33 * healthPercent, 1, 1)
+		end
+
+		-- Tracer
+		drawings.Tracer.Visible = State.TracerESP
+		if State.TracerESP then
+			local origin
+			local originStyle = ESP_CONFIG.TracerOrigins[tracerOriginIndex]
+			if originStyle == "Bottom" then origin = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+			elseif originStyle == "Top" then origin = Vector2.new(Camera.ViewportSize.X/2, 0)
+			elseif originStyle == "Mouse" then origin = UserInputService:GetMouseLocation()
+			else origin = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2) end
+			updateLine(drawings.Tracer, origin, Vector2.new(screenPos.X, screenPos.Y), ESP_CONFIG.TracerThickness, color)
+		end
+
+		-- Box
+		for i, line in ipairs(drawings.Box) do line.Visible = false end
+		if State.BoxESP then
+			local boxStyle = ESP_CONFIG.BoxStyles[boxStyleIndex]
+			if boxStyle == "3D" then
+				local corners = {
+					hrp.CFrame * CFrame.new(-size.X/2, -size.Y/2, -size.Z/2), hrp.CFrame * CFrame.new(size.X/2, -size.Y/2, -size.Z/2),
+					hrp.CFrame * CFrame.new(size.X/2, size.Y/2, -size.Z/2), hrp.CFrame * CFrame.new(-size.X/2, size.Y/2, -size.Z/2),
+					hrp.CFrame * CFrame.new(-size.X/2, -size.Y/2, size.Z/2), hrp.CFrame * CFrame.new(size.X/2, -size.Y/2, size.Z/2),
+					hrp.CFrame * CFrame.new(size.X/2, size.Y/2, size.Z/2), hrp.CFrame * CFrame.new(-size.X/2, size.Y/2, size.Z/2)
+				}
+				local points, valid = {}, true
+				for i, corner in ipairs(corners) do
+					local p, v = Camera:WorldToScreenPoint(corner.Position)
+					if not v then valid = false; break end
+					points[i] = Vector2.new(p.X, p.Y)
+				end
+				if valid then
+					local connections = {
+						1,2, 2,3, 3,4, 4,1, 5,6, 6,7, 7,8, 8,5, 1,5, 2,6, 3,7, 4,8
+					}
+					for i=1, 12 do
+						updateLine(drawings.Box[i], points[connections[i*2-1]], points[connections[i*2]], ESP_CONFIG.BoxThickness, color)
+					end
+				end
+			elseif boxStyle == "Corner" then
+				local cornerLength = math.min(screenWidth, screenHeight) * 0.2
+				local corners = {
+					{topLeft, topLeft + Vector2.new(cornerLength, 0)}, {topLeft, topLeft + Vector2.new(0, cornerLength)},
+					{topLeft + Vector2.new(screenWidth, 0), topLeft + Vector2.new(screenWidth - cornerLength, 0)}, {topLeft + Vector2.new(screenWidth, 0), topLeft + Vector2.new(screenWidth, cornerLength)},
+					{topLeft + Vector2.new(0, screenHeight), topLeft + Vector2.new(cornerLength, screenHeight)}, {topLeft + Vector2.new(0, screenHeight), topLeft + Vector2.new(0, screenHeight - cornerLength)},
+					{topLeft + Vector2.new(screenWidth, screenHeight), topLeft + Vector2.new(screenWidth - cornerLength, screenHeight)}, {topLeft + Vector2.new(screenWidth, screenHeight), topLeft + Vector2.new(screenWidth, screenHeight - cornerLength)}
+				}
+				for i, data in ipairs(corners) do updateLine(drawings.Box[i], data[1], data[2], ESP_CONFIG.BoxThickness, color) end
+			else -- Full
+				local points = {topLeft, topLeft+Vector2.new(screenWidth,0), topLeft+Vector2.new(screenWidth, screenHeight), topLeft+Vector2.new(0, screenHeight)}
+				for i=1,4 do updateLine(drawings.Box[i], points[i], points[i%4+1], ESP_CONFIG.BoxThickness, color) end
+			end
+		end
+
+		-- Skeleton
+		for i, line in ipairs(drawings.Skeleton) do line.Visible = false end
+		if State.SkeletonESP then
+			local parts = {}
+			for _, partName in ipairs({"Head","UpperTorso","LowerTorso","LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}) do
+				parts[partName] = char:FindFirstChild(partName)
+			end
+			for i, bone in ipairs(BONES) do
+				local p1, p2 = parts[bone[1]], parts[bone[2]]
+				if p1 and p2 then
+					local s1, v1 = Camera:WorldToScreenPoint(p1.Position)
+					local s2, v2 = Camera:WorldToScreenPoint(p2.Position)
+                    if v1 and v2 then
+					    updateLine(drawings.Skeleton[i], Vector2.new(s1.X,s1.Y), Vector2.new(s2.X,s2.Y), ESP_CONFIG.SkeletonThickness, ESP_CONFIG.SkeletonColor)
+                    end
+				end
+			end
+		end
+	end
+end
+
+--// AIMBOT & MOVEMENT FUNCTIONS (Unchanged) //--
+local function updateAimbotFOV() if not aimbotFovCircle then return end aimbotFovCircle.Visible = State.IsAimbotActive if State.IsAimbotActive then local mousePos = UserInputService:GetMouseLocation() aimbotFovCircle.Position = UDim2.fromOffset(mousePos.X, mousePos.Y) local fovSize = CONFIG.AimbotFOV * 2 aimbotFovCircle.Size = UDim2.fromOffset(fovSize, fovSize) end end
+local function getClosestPlayerToMouse() local closestTarget, smallestDistance = nil, CONFIG.AimbotFOV local mousePosition = UserInputService:GetMouseLocation() for _, player in ipairs(Players:GetPlayers()) do local char = player.Character if player ~= LocalPlayer and char and char:FindFirstChild(CONFIG.TargetPartName) and char:FindFirstChildOfClass("Humanoid") and char.Humanoid.Health > 0 then local targetPart = char[CONFIG.TargetPartName] local screenPosition, onScreen = Camera:WorldToScreenPoint(targetPart.Position) if onScreen then local distance = (Vector2.new(screenPosition.X, screenPosition.Y) - mousePosition).Magnitude if distance < smallestDistance then smallestDistance, closestTarget = distance, targetPart end end end end return closestTarget end
+local function updateAimbot() if not State.IsAimbotActive then return end local target = getClosestPlayerToMouse() if target then local predictedPosition = target.Position + (target.AssemblyLinearVelocity * CONFIG.AimbotPrediction) local newCFrame = CFrame.new(Camera.CFrame.Position, predictedPosition) if CONFIG.AimbotHardLock then Camera.CFrame = newCFrame else Camera.CFrame = Camera.CFrame:Lerp(newCFrame, CONFIG.AimbotSmoothing) end end end
+local function updateFly() local char = LocalPlayer.Character if not State.IsFlyEnabled or not char or not char:FindFirstChild("HumanoidRootPart") then if flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end return end local hrp = char.HumanoidRootPart if not flyVelocity then flyVelocity = Instance.new("LinearVelocity", hrp) flyVelocity.MaxForce = math.huge flyVelocity.Attachment0 = hrp:FindFirstChildWhichIsA("Attachment") or Instance.new("Attachment", hrp) flyVelocity.RelativeTo = Enum.ActuatorRelativeTo.World end local moveVector = Vector3.new() if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector += Camera.CFrame.LookVector end if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector -= Camera.CFrame.LookVector end if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector += Camera.CFrame.RightVector end if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector -= Camera.CFrame.RightVector end if UserInputService:IsKeyDown(CONFIG.FlyUpKey) then moveVector += Vector3.new(0, 1, 0) end if UserInputService:IsKeyDown(CONFIG.FlyDownKey) then moveVector -= Vector3.new(0, 1, 0) end flyVelocity.VectorVelocity = moveVector.Magnitude > 0 and moveVector.Unit * CONFIG.FlySpeed or Vector3.zero end
+local function teleportToCursor() if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end local mouseLocation = UserInputService:GetMouseLocation() local unitRay = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y) local rayParams = RaycastParams.new() rayParams.FilterDescendantsInstances = {LocalPlayer.Character} rayParams.FilterType = Enum.RaycastFilterType.Exclude local result = Workspace:Raycast(unitRay.Origin, unitRay.Direction * CONFIG.TeleportMaxDistance, rayParams) local targetPos = result and result.Position or (unitRay.Origin + unitRay.Direction * CONFIG.TeleportMaxDistance) LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos) end
+
+--// UI & STATE MANAGEMENT //--
+local gui, mainFrame, playerListFrame
+local function toggleState(stateKey, button)
+	State[stateKey] = not State[stateKey]
+	button.Text = button.Name .. ": " .. (State[stateKey] and "ON" or "OFF")
+	button.TextColor3 = State[stateKey] and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(255, 70, 70)
+	if stateKey == "IsFlyEnabled" and not State[stateKey] and flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end
+	if stateKey == "IsWallBangEnabled" then updateWorkspaceCollision(State[stateKey]) end
+end
+
+local function updatePlayerList() if not playerListFrame then return end playerListFrame:ClearAllChildren() for i, player in ipairs(Players:GetPlayers()) do if player ~= LocalPlayer then local playerButton = Instance.new("TextButton", playerListFrame) playerButton.Name = player.Name playerButton.LayoutOrder = i playerButton.Size = UDim2.new(1, 0, 0, 25) playerButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70) playerButton.Font = Enum.Font.SourceSans playerButton.Text = player.Name playerButton.TextSize = 16 playerButton.TextColor3 = Color3.new(1, 1, 1) Instance.new("UICorner", playerButton).CornerRadius = UDim.new(0, 4) playerButton.MouseButton1Click:Connect(function() if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame end end) end end end
+
+local function createGUI()
+	gui = Instance.new("ScreenGui")
+	gui.Name = "UtilitySuiteGUI"
+	gui.ResetOnSpawn = false
+	gui.DisplayOrder = 999
+	
+	espContainer = Instance.new("Frame", gui)
+	espContainer.Name = "ESPContainer"
+	espContainer.Size = UDim2.new(1, 0, 1, 0)
+	espContainer.BackgroundTransparency = 1
+	
+	local aimbotContainer = Instance.new("Frame", gui)
+	aimbotContainer.Name = "AimbotContainer"
+	aimbotContainer.Size = UDim2.new(1, 0, 1, 0)
+	aimbotContainer.BackgroundTransparency = 1
+	
+	aimbotFovCircle = Instance.new("Frame", aimbotContainer)
+	aimbotFovCircle.Name = "AimbotFovCircle"
+	aimbotFovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+	aimbotFovCircle.BackgroundTransparency = 1
+	aimbotFovCircle.BorderColor3 = Color3.fromRGB(170, 0, 255)
+	aimbotFovCircle.BorderSizePixel = 2
+	aimbotFovCircle.Visible = false
+	local circleCorner = Instance.new("UICorner", aimbotFovCircle)
+	circleCorner.CornerRadius = UDim.new(1, 0)
+
+	mainFrame = Instance.new("Frame", gui)
+	mainFrame.Size = UDim2.fromOffset(250, 480)
+	mainFrame.Position = UDim2.new(0, 20, 0.5, -240)
+	mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	mainFrame.BorderSizePixel = 0
+	Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 8)
+
+	local title = Instance.new("TextLabel", mainFrame)
+	title.Size = UDim2.new(1, 0, 0, 40)
+	title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+	title.Text = "mooncat v4.8"
+	title.TextSize = 24
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.Font = Enum.Font.SourceSansBold
+	Instance.new("UICorner", title).CornerRadius = UDim.new(0, 8)
+
+	local scrollingFrame = Instance.new("ScrollingFrame", mainFrame)
+	scrollingFrame.Position = UDim2.new(0, 0, 0, 40)
+	scrollingFrame.Size = UDim2.new(1, 0, 1, -40)
+	scrollingFrame.BackgroundTransparency = 1
+	scrollingFrame.BorderSizePixel = 0
+	scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(170, 0, 255)
+	scrollingFrame.ScrollBarThickness = 6
+
+	local listLayout = Instance.new("UIListLayout", scrollingFrame)
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	listLayout.Padding = UDim.new(0, 10)
+
+	local padding = Instance.new("UIPadding", scrollingFrame)
+	padding.PaddingTop = UDim.new(0, 15)
+	padding.PaddingLeft = UDim.new(0, 10)
+	padding.PaddingRight = UDim.new(0, 10)
+
+	listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + padding.PaddingTop.Offset) end)
+
+	local function createCategory(text) local label = Instance.new("TextLabel", scrollingFrame) label.Name = text .. "Category" label.LayoutOrder = #scrollingFrame:GetChildren() label.Size = UDim2.new(1, 0, 0, 25) label.BackgroundTransparency = 1 label.Font = Enum.Font.SourceSansBold label.Text = text label.TextColor3 = Color3.new(1,1,1) label.TextSize = 20 label.TextXAlignment = Enum.TextXAlignment.Left return label end
+	local function createToggle(text, stateKey) local button = Instance.new("TextButton", scrollingFrame) button.Name = text button.LayoutOrder = #scrollingFrame:GetChildren() button.Size = UDim2.new(1, 0, 0, 30) button.BackgroundColor3 = Color3.fromRGB(60, 60, 60) button.Font = Enum.Font.SourceSans button.Text = text .. ": " .. (State[stateKey] and "ON" or "OFF") button.TextSize = 20 button.TextColor3 = State[stateKey] and Color3.fromRGB(0, 255, 127) or Color3.fromRGB(255, 70, 70) Instance.new("UICorner", button).CornerRadius = UDim.new(0, 4) uiElements[stateKey] = button local connection = button.MouseButton1Click:Connect(function() toggleState(stateKey, button) end) return button, connection end
+	local function createSlider(name, configKey, maxConfigKey, format, customUpdateFunc) local container = Instance.new("Frame", scrollingFrame) container.BackgroundTransparency = 1 container.LayoutOrder = #scrollingFrame:GetChildren() container.Size = UDim2.new(1, 0, 0, 40) local list = Instance.new("UIListLayout", container) list.Padding = UDim.new(0, 2) local label = Instance.new("TextLabel", container) label.Size = UDim2.new(1, 0, 0, 18) label.BackgroundTransparency = 1 label.TextColor3 = Color3.fromRGB(255, 255, 255) label.Font = Enum.Font.SourceSans label.TextSize = 18 label.TextXAlignment = Enum.TextXAlignment.Left local slider = Instance.new("Frame", container) slider.Size = UDim2.new(1, 0, 0, 12) slider.BackgroundColor3 = Color3.fromRGB(60, 60, 60) Instance.new("UICorner", slider).CornerRadius = UDim.new(0, 6) local bar = Instance.new("Frame", slider) bar.BackgroundColor3 = Color3.fromRGB(170, 0, 255) Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 6) local function updateVisuals() label.Text = name .. ": " .. string.format(format, CONFIG[configKey] or ESP_CONFIG[configKey]) bar.Size = UDim2.new((CONFIG[configKey] or ESP_CONFIG[configKey]) / (CONFIG[maxConfigKey] or ESP_CONFIG[maxConfigKey] or maxConfigKey), 0, 1, 0) end slider.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then local function updateValue(mouseInput) local relativeX = math.clamp(mouseInput.Position.X - slider.AbsolutePosition.X, 0, slider.AbsoluteSize.X) local percentage = relativeX / slider.AbsoluteSize.X local maxVal = CONFIG[maxConfigKey] or ESP_CONFIG[maxConfigKey] or maxConfigKey if CONFIG[configKey] then CONFIG[configKey] = percentage * maxVal else ESP_CONFIG[configKey] = percentage * maxVal end updateVisuals() if customUpdateFunc then customUpdateFunc() end end updateValue(input) local moveConn, releaseConn moveConn = UserInputService.InputChanged:Connect(function(mi) if mi.UserInputType == Enum.UserInputType.MouseMovement then updateValue(mi) end end) releaseConn = UserInputService.InputEnded:Connect(function(ei) if ei.UserInputType == Enum.UserInputType.MouseButton1 then moveConn:Disconnect(); releaseConn:Disconnect() end end) end end) updateVisuals() end
+
+	--// UI ELEMENT CREATION //--
+	createCategory("ESP")
+	createToggle("Enable ESP", "ESP_Enabled")
+	createToggle("Box ESP", "BoxESP")
+	local boxStyleButton = Instance.new("TextButton", scrollingFrame) boxStyleButton.Name = "Box Style" boxStyleButton.LayoutOrder = #scrollingFrame:GetChildren() boxStyleButton.Size = UDim2.new(1, 0, 0, 30) boxStyleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) boxStyleButton.Font = Enum.Font.SourceSans boxStyleButton.Text = "Style: " .. ESP_CONFIG.BoxStyles[boxStyleIndex] boxStyleButton.TextSize = 20 boxStyleButton.TextColor3 = Color3.fromRGB(220, 220, 220) Instance.new("UICorner", boxStyleButton).CornerRadius = UDim.new(0, 4) boxStyleButton.MouseButton1Click:Connect(function() boxStyleIndex = (boxStyleIndex % #ESP_CONFIG.BoxStyles) + 1 boxStyleButton.Text = "Style: " .. ESP_CONFIG.BoxStyles[boxStyleIndex] end)
+	createToggle("Tracer ESP", "TracerESP")
+	local tracerOriginButton = Instance.new("TextButton", scrollingFrame) tracerOriginButton.Name = "Tracer Origin" tracerOriginButton.LayoutOrder = #scrollingFrame:GetChildren() tracerOriginButton.Size = UDim2.new(1, 0, 0, 30) tracerOriginButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) tracerOriginButton.Font = Enum.Font.SourceSans tracerOriginButton.Text = "Origin: " .. ESP_CONFIG.TracerOrigins[tracerOriginIndex] tracerOriginButton.TextSize = 20 tracerOriginButton.TextColor3 = Color3.fromRGB(220, 220, 220) Instance.new("UICorner", tracerOriginButton).CornerRadius = UDim.new(0, 4) tracerOriginButton.MouseButton1Click:Connect(function() tracerOriginIndex = (tracerOriginIndex % #ESP_CONFIG.TracerOrigins) + 1 tracerOriginButton.Text = "Origin: " .. ESP_CONFIG.TracerOrigins[tracerOriginIndex] end)
+	createToggle("Name ESP", "NameESP")
+	createToggle("Health ESP", "HealthESP")
+	createToggle("Distance ESP", "DistanceESP")
+	createToggle("Skeleton ESP", "SkeletonESP")
+	createToggle("Chams ESP", "ChamsESP")
+	createToggle("Rainbow Mode", "RainbowMode")
+	createSlider("Max Distance", "MaxDistance", 5000, "%.0fm")
+
+	createCategory("Combat")
+	local killAllButton = Instance.new("TextButton", scrollingFrame) killAllButton.Name = "Kill All (ACS)" killAllButton.LayoutOrder = #scrollingFrame:GetChildren() killAllButton.Size = UDim2.new(1, 0, 0, 30) killAllButton.BackgroundColor3 = Color3.fromRGB(150, 40, 40) killAllButton.Font = Enum.Font.SourceSansBold killAllButton.Text = "Kill All (ACS)" killAllButton.TextSize = 20 killAllButton.TextColor3 = Color3.fromRGB(255, 255, 255) Instance.new("UICorner", killAllButton).CornerRadius = UDim.new(0, 4) killAllButton.MouseButton1Click:Connect(killAllPlayers)
+	local targetButton = Instance.new("TextButton", scrollingFrame) targetButton.Name = "Aimbot Target" targetButton.LayoutOrder = #scrollingFrame:GetChildren() targetButton.Size = UDim2.new(1, 0, 0, 30) targetButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) targetButton.Font = Enum.Font.SourceSans targetButton.Text = "Target: " .. CONFIG.TargetPartName targetButton.TextSize = 20 targetButton.TextColor3 = Color3.fromRGB(220, 220, 220) Instance.new("UICorner", targetButton).CornerRadius = UDim.new(0, 4) targetButton.MouseButton1Click:Connect(function() aimbotTargetIndex = (aimbotTargetIndex % #CONFIG.AimbotTargetParts) + 1 CONFIG.TargetPartName = CONFIG.AimbotTargetParts[aimbotTargetIndex] targetButton.Text = "Target: " .. CONFIG.TargetPartName end)
+	createSlider("Aimbot FOV", "AimbotFOV", "MaxAimbotFOV", "%.0f")
+	createSlider("Aimbot Prediction", "AimbotPrediction", "MaxAimbotPrediction", "%.2f")
+	createSlider("Aimbot Smoothing", "AimbotSmoothing", "MaxAimbotSmoothing", "%.2f")
+
+	createCategory("Movement")
+	createToggle("Fly", "IsFlyEnabled")
+	createToggle("WallBang (Noclip)", "IsWallBangEnabled")
+	createSlider("WalkSpeed", "DefaultWalkSpeed", "MaxWalkSpeed", "%.0f", function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed end end)
+	createSlider("Fly Speed", "FlySpeed", "MaxFlySpeed", "%.0f")
+	
+	createCategory("Players")
+	playerListFrame = Instance.new("Frame", scrollingFrame) playerListFrame.Name = "PlayerListFrame" playerListFrame.LayoutOrder = #scrollingFrame:GetChildren() playerListFrame.Size = UDim2.new(1, 0, 0, 0) playerListFrame.AutomaticSize = Enum.AutomaticSize.Y playerListFrame.BackgroundTransparency = 1 local playerListLayout = Instance.new("UIListLayout", playerListFrame) playerListLayout.Padding = UDim.new(0, 5)
+
+	gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+	updatePlayerList()
+end
+
+local isGuiVisible = true
+function toggleGUI() isGuiVisible = not isGuiVisible local goalPosition = isGuiVisible and UDim2.new(0, 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) or UDim2.new(0, -mainFrame.AbsoluteSize.X - 20, 0.5, -mainFrame.AbsoluteSize.Y / 2) mainFrame:TweenPosition(goalPosition, Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.3, true) end
+
+--// EVENT HANDLERS //--
+local function onCharacterAdded(character)
+	task.wait(0.1)
+	if not character or not character.Parent then return end
+	local humanoid = character:WaitForChild("Humanoid")
+	humanoid.WalkSpeed = CONFIG.DefaultWalkSpeed
+end
+local function onPlayerAdded(player) if player ~= LocalPlayer then createEspForPlayer(player) end if gui then updatePlayerList() end end
+local function onPlayerRemoving(player) removeEspForPlayer(player) if gui then updatePlayerList() end end
+
+local function onInputBegan(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == CONFIG.ToggleGUIKey then toggleGUI() end
+	if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = true end
+	if input.KeyCode == CONFIG.TeleportKey then teleportToCursor() end
+	if input.KeyCode == CONFIG.ToggleESPKey then if uiElements["ESP_Enabled"] then toggleState("ESP_Enabled", uiElements["ESP_Enabled"]) end end
+end
+local function onInputEnded(input) if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = false end end
+
+--// INITIALIZATION //--
+createGUI()
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(onPlayerRemoving)
+UserInputService.InputBegan:Connect(onInputBegan)
+UserInputService.InputEnded:Connect(onInputEnded)
+if LocalPlayer.Character then onCharacterAdded(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+
+for _, player in ipairs(Players:GetPlayers()) do onPlayerAdded(player) end
+
+RunService.RenderStepped:Connect(function()
+	updateAllEsp()
+	updateAimbot()
+	updateAimbotFOV()
+	updateFly()
+end)
+
+print("mooncat v4.8 (Client-Side) Loaded. Press RightShift to toggle the menu.")
