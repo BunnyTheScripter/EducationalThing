@@ -1,5 +1,4 @@
 --[[
-	Original script by the user, modifications implemented as requested.
 	- Added a screen-centered FOV circle, toggleable in the GUI.
 	- Changed aimbot logic to target the closest player within the FOV (front player priority).
 	- Changed the aimbot key to MouseButton4.
