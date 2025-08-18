@@ -87,9 +87,9 @@ local State = {
 	RainbowMode = false,
 }
 
--- [+] RPG MODIFIER LOGIC [+]
+-- [+] RPG MODIFIER LOGIC (FIXED) [+]
 local function modifyRpgSettings()
-	log("[🔍]", "Attempting to modify RPG settings...")
+	log("[🔍]", "Attempting to modify RPG settings via source manipulation...")
 	local success, err = pcall(function()
 		local configurations = ReplicatedStorage:WaitForChild("Configurations", 5)
 		if not configurations then error("Configurations folder not found.") end
@@ -101,43 +101,37 @@ local function modifyRpgSettings()
 		if not rpgFolder then error("RPG folder not found in ACS_Guns.") end
 		
 		local settingsModule = rpgFolder:WaitForChild("Settings", 5)
-		if not settingsModule then error("Settings module not found in RPG folder.") end
+		if not settingsModule or not settingsModule:IsA("ModuleScript") then error("Settings module not found or is not a ModuleScript.") end
 
 		log("[✅]", "Found RPG settings module at: " .. settingsModule:GetFullName())
 
-		-- Require the module to get access to the settings table
-		local settings = require(settingsModule)
+		local source = settingsModule.Source
+		if not source or #source < 10 then error("Could not read module source.") end
+		
+		log("[🔍]", "Original source read. Applying modifications...")
+		
+		-- Use string.gsub to replace values without breaking the code structure
+		source = source:gsub("(Ammo = )%d+", "%1 99999")
+		source = source:gsub("(FireRate = )%d+", "%1 1000")
+		source = source:gsub("(BDrop = )[%d%.]+", "%1 0")
+		source = source:gsub("(BSpeed = )%d+", "%1 5000")
+		source = source:gsub('(Mode = )"RPG"', '%1"Auto"')
+		source = source:gsub("(Auto = )false", "%1 true")
+		source = source:gsub("(VRecoil = ){[^}]+}", "%1{0, 0}")
+		source = source:gsub("(HRecoil = ){[^}]+}", "%1{0, 0}")
+		source = source:gsub("(RecoilPunch = )[%d%.]+", "%1 0")
+		source = source:gsub("(MinSpread = )[%d%.]+", "%1 0")
+		source = source:gsub("(MaxSpread = )[%d%.]+", "%1 0")
 
-		log("[🔍]", "Applying new overpowered settings...")
-
-		-- Modify the settings table
-		settings.Ammo = 99999
-		settings.FireRate = 1000
-		settings.BDrop = 0 -- No bullet drop
-		settings.BSpeed = 5000 -- Faster bullet
-		settings.Distance = 10000 -- Longer range
+		-- Overwrite the module's source with our modified version
+		settingsModule.Source = source
 		
-		-- Fire Modes
-		settings.Mode = "Auto"
-		settings.FireModes.Auto = true
-		settings.FireModes.RPG = false -- Disable specific RPG mode if Auto handles it
-		
-		-- Recoil
-		settings.VRecoil = {0, 0}
-		settings.HRecoil = {0, 0}
-		settings.RecoilPunch = 0
-		settings.AimRecover = 1
-		
-		-- Spread / Inaccuracy
-		settings.MinSpread = 0
-		settings.MaxSpread = 0
-		settings.AimInaccuracyStepAmount = 0
-		
-		log("[✅]", "Overpowered RPG settings have been applied successfully!")
+		log("[✅]", "Overpowered RPG settings have been written to the module's source successfully!")
+		log("[ℹ️]", "Re-equip the RPG for changes to take effect.")
 	end)
 
 	if not success then
-		log("[❌]", "Failed to modify RPG settings: " .. err)
+		log("[❌]", "Failed to modify RPG settings: " .. tostring(err))
 	end
 end
 
@@ -526,7 +520,7 @@ local function createGUI()
 	local title = Instance.new("TextLabel", mainFrame)
 	title.Size = UDim2.new(1, 0, 0, 40)
 	title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-	title.Text = "mooncat v4.9 (MOD)"
+	title.Text = "mooncat v5.0 (FIXED)"
 	title.TextSize = 24
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	title.Font = Enum.Font.SourceSansBold
@@ -662,6 +656,6 @@ print([[
 | |  | | (_) | (_) | | | | | |__| (_| | |_
 |_|  |_|\___/ \___/|_| |_|  \____\__,_|\__|
 
-mooncat v4.9 (MOD) (Client-Side) Loaded. Press RightShift to toggle the menu.
-New RPG Modifier feature integrated.
+mooncat v5.0 (FIXED) (Client-Side) Loaded. Press RightShift to toggle the menu.
+RPG Modifier has been patched and is now more reliable.
 ]])
