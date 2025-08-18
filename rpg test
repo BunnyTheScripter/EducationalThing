@@ -1,7 +1,7 @@
 --[[
 	- Added a screen-centered FOV circle, toggleable in the GUI.
 	- Changed aimbot logic to target the closest player within the FOV (front player priority).
-	- Changed the aimbot key to MouseButton4.
+	- Changed the aimbot key to MouseButton4 and fixed the Enum error.
 ]]
 
 local UserInputService = game:GetService("UserInputService")
@@ -16,7 +16,7 @@ local Camera = Workspace.CurrentCamera
 local CONFIG = {
 	ToggleGUIKey = Enum.KeyCode.RightShift,
 	ToggleESPKey = Enum.KeyCode.X,
-	AimbotKey = Enum.UserInputType.MouseButton4, -- Changed to MouseButton4
+	AimbotKey = Enum.KeyCode.MouseButton4, -- FIXED: Changed to KeyCode for MouseButton4
 	TeleportKey = Enum.KeyCode.Q,
 	FlyUpKey = Enum.KeyCode.Space,
 	FlyDownKey = Enum.KeyCode.LeftControl,
@@ -58,7 +58,7 @@ local ESP_CONFIG = {
 
 local State = {
 	IsAimbotActive = false,
-	ShowAimbotFOV = true, -- Added state for FOV circle visibility
+	ShowAimbotFOV = true,
 	IsFlyEnabled = false,
 	IsWallBangEnabled = false,
 	HitboxESP = false,
@@ -271,18 +271,16 @@ local function updateAllEsp()
 	end
 end
 
--- Reworked FOV circle logic
 local function updateAimbotFOV()
 	if not aimbotFovCircle then return end
 	aimbotFovCircle.Visible = State.ShowAimbotFOV
 	if State.ShowAimbotFOV then
 		local fovSize = CONFIG.AimbotFOV * 2
-		aimbotFovCircle.Position = UDim2.fromOffset(Camera.ViewportSize.X / 2, Camera.ViewportSiz.Y / 2)
+		aimbotFovCircle.Position = UDim2.fromOffset(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 		aimbotFovCircle.Size = UDim2.fromOffset(fovSize, fovSize)
 	end
 end
 
--- Reworked Aimbot targeting logic
 local function getAimbotTarget()
 	local bestTarget, min3DDistance = nil, math.huge
 	local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -293,7 +291,6 @@ local function getAimbotTarget()
 			local screenPosition, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
 
 			if onScreen and (Vector2.new(screenPosition.X, screenPosition.Y) - screenCenter).Magnitude < CONFIG.AimbotFOV then
-				-- Player is in FOV, check if they are the closest in 3D space (the one in front)
 				local distance3D = (targetPart.Position - Camera.CFrame.Position).Magnitude
 				if distance3D < min3DDistance then
 					min3DDistance = distance3D
@@ -307,7 +304,7 @@ end
 
 local function updateAimbot()
 	if not State.IsAimbotActive then return end
-	local target = getAimbotTarget() -- Use new targeting function
+	local target = getAimbotTarget()
 	if target then
 		local predictedPosition = target.Position + (target.AssemblyLinearVelocity * CONFIG.AimbotPrediction)
 		local newCFrame = CFrame.new(Camera.CFrame.Position, predictedPosition)
@@ -399,7 +396,7 @@ local function createGUI()
 	local tracerOriginButton = Instance.new("TextButton", scrollingFrame) tracerOriginButton.Name = "Tracer Origin" tracerOriginButton.LayoutOrder = #scrollingFrame:GetChildren() tracerOriginButton.Size = UDim2.new(1, 0, 0, 30) tracerOriginButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60) tracerOriginButton.Font = Enum.Font.SourceSans tracerOriginButton.Text = "Origin: " .. ESP_CONFIG.TracerOrigins[tracerOriginIndex] tracerOriginButton.TextSize = 20 tracerOriginButton.TextColor3 = Color3.fromRGB(220, 220, 220) Instance.new("UICorner", tracerOriginButton).CornerRadius = UDim.new(0, 4) tracerOriginButton.MouseButton1Click:Connect(function() tracerOriginIndex = (tracerOriginIndex % #ESP_CONFIG.TracerOrigins) + 1 tracerOriginButton.Text = "Origin: " .. ESP_CONFIG.TracerOrigins[tracerOriginIndex] end)
 	createToggle("Name ESP", "NameESP") createToggle("Health ESP", "HealthESP") createToggle("Distance ESP", "DistanceESP") createToggle("Skeleton ESP", "SkeletonESP") createToggle("Chams ESP", "ChamsESP") createToggle("Rainbow Mode", "RainbowMode") createSlider("Max Distance", "MaxDistance", 5000, "%.0fm")
 	createCategory("Combat")
-	createToggle("Show Aimbot FOV", "ShowAimbotFOV") -- Added FOV toggle button
+	createToggle("Show Aimbot FOV", "ShowAimbotFOV")
 	createToggle("Hitbox Expander", "HitboxESP")
 	createSlider("Hitbox Size", "HitboxSize", "MaxHitboxSize", "%.1f")
 	local godModeButton = Instance.new("TextButton", scrollingFrame) godModeButton.Name = "God Mode" godModeButton.LayoutOrder = #scrollingFrame:GetChildren() godModeButton.Size = UDim2.new(1, 0, 0, 30) godModeButton.BackgroundColor3 = Color3.fromRGB(170, 0, 255) godModeButton.Font = Enum.Font.SourceSansBold godModeButton.Text = "God Mode" godModeButton.TextSize = 20 godModeButton.TextColor3 = Color3.fromRGB(255, 255, 255) Instance.new("UICorner", godModeButton).CornerRadius = UDim.new(0, 4) godModeButton.MouseButton1Click:Connect(function() activateGodMode(LocalPlayer) end)
@@ -442,13 +439,13 @@ end
 local function onInputBegan(input, gameProcessed)
 	if gameProcessed then return end
 	if input.KeyCode == CONFIG.ToggleGUIKey then toggleGUI() end
-	if input.UserInputType == CONFIG.AimbotKey then State.IsAimbotActive = true end -- Changed to check UserInputType
+	if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = true end -- FIXED: Changed to check KeyCode
 	if input.KeyCode == CONFIG.TeleportKey then teleportToCursor() end
 	if input.KeyCode == CONFIG.ToggleESPKey then if uiElements["ESP_Enabled"] then toggleState("ESP_Enabled", uiElements["ESP_Enabled"]) end end
 end
 
 local function onInputEnded(input)
-	if input.UserInputType == CONFIG.AimbotKey then State.IsAimbotActive = false end -- Changed to check UserInputType
+	if input.KeyCode == CONFIG.AimbotKey then State.IsAimbotActive = false end -- FIXED: Changed to check KeyCode
 end
 
 createGUI()
