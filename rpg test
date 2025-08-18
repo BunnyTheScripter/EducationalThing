@@ -23,7 +23,6 @@ else
     print("MOONCAT: ACESSO PERMITIDO - BEM-VINDO!")
     print("==============================================")
 end
-end
 
 -- Se chegou até aqui, o jogador está na whitelist ou a lista está vazia.
 
